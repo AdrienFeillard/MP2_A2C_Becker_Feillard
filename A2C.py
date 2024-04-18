@@ -48,7 +48,7 @@ def compute_next_states(envs, actions, K):
     return torch.Tensor(np.array(next_states)), torch.Tensor(np.array(rewards)), terminated or truncated
 
 
-def cart_pole_A2C(K: int = 1, n: int = 1, max_iter: int = 50000):
+def cart_pole_A2C(K: int = 1, nb_steps: int = 1, max_iter: int = 50000):
     envs = [gym.make('CartPole-v1') for _ in range(K)]
 
     # Create actor and critic
@@ -70,15 +70,23 @@ def cart_pole_A2C(K: int = 1, n: int = 1, max_iter: int = 50000):
     states = torch.Tensor(np.array([envs[k].reset()[0] for k in range(K)]))
 
     while not done and t < max_iter:
-        # Sample actions for each environment
-        policies = actor(states)
-        actions = np.array([np.random.choice(np.arange(nb_actions), p=policy.detach().numpy()) for policy in policies])
+        returns = torch.zeros((K, ))
+        tmp_states = states
+        steps_actions = []
+        for n in range(nb_steps):
+            # Sample actions for each environment
+            policies = actor(tmp_states)
+            steps_actions.append(np.array([np.random.choice(np.arange(nb_actions), p=policy.detach().numpy()) for policy in policies]))
 
-        # Observe next states and rewards for each environment
-        next_states, rewards, done = compute_next_states(envs, actions, K)
+            # Observe next states and rewards for each environment
+            next_states, rewards, done = compute_next_states(envs, steps_actions[n], K)
 
-        total_rewards = rewards + gamma * critic(next_states)
-        advantages = total_rewards - critic(states)
+            returns += gamma**n * rewards
+            tmp_states = next_states
+
+        actions = steps_actions[0]
+        returns += gamma**nb_steps * torch.flatten(critic(tmp_states))
+        advantages = returns - critic(states)
 
         # Update actor params
         actor_loss = torch.sum(advantages * torch.log(actor(states)[torch.arange(len(actions)), actions]))
@@ -88,7 +96,7 @@ def cart_pole_A2C(K: int = 1, n: int = 1, max_iter: int = 50000):
         critic_losses.append(actor_loss.item())
 
         # Update critic params
-        critic_loss = torch.sum((total_rewards - critic(states)) ** 2)
+        critic_loss = torch.sum((returns - critic(states)) ** 2)
         critic_optimizer.zero_grad()
         critic_loss.backward()
         critic_optimizer.step()
@@ -96,7 +104,7 @@ def cart_pole_A2C(K: int = 1, n: int = 1, max_iter: int = 50000):
 
         t += 1
         episode_rewards.append(rewards.mean().item())
-        states = next_states
+        states = tmp_states
 
     return actor, critic, episode_rewards, actor_losses, critic_losses
 
