@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import nn, optim
 import gymnasium as gym
+from utils import *
 
 
 class Actor(nn.Module):
@@ -62,7 +63,9 @@ def cart_pole_A2C(K: int = 1, n: int = 1, max_iter: int = 50000):
     critic_optimizer = optim.Adam(critic.parameters(), lr=1e-3)
 
     done = False
-
+    episode_rewards = []
+    actor_losses = []
+    critic_losses = []
     t = 0
     states = torch.Tensor(np.array([envs[k].reset()[0] for k in range(K)]))
 
@@ -82,17 +85,21 @@ def cart_pole_A2C(K: int = 1, n: int = 1, max_iter: int = 50000):
         actor_optimizer.zero_grad()
         actor_loss.backward(retain_graph=True)
         actor_optimizer.step()
+        critic_losses.append(actor_loss.item())
 
         # Update critic params
         critic_loss = torch.sum((total_rewards - critic(states)) ** 2)
         critic_optimizer.zero_grad()
         critic_loss.backward()
         critic_optimizer.step()
+        critic_losses.append(critic_loss.item())
 
         t += 1
+        episode_rewards.append(rewards.mean().item())
         states = next_states
 
-    return actor, critic
+    return actor, critic, episode_rewards, actor_losses, critic_losses
 
 
-actor, critic = cart_pole_A2C(4, 1)
+actor, critic , episode_rewards, actor_losses, critic_losses = cart_pole_A2C(4, 1)
+plot_training_results(episode_rewards,actor_losses,critic_losses)
