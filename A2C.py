@@ -34,15 +34,30 @@ class Critic(nn.Module):
         return self.network(state)
 
 
-class ActionCritic:
-    def __init__(self, nb_states, nb_actions):
-        self.actor = Actor(nb_states, nb_actions)
-        self.critic = Critic(nb_states)
+class ActorCritic:
+    def __init__(self, *args):
+        if len(args) == 2:
+            nb_states, nb_actions = args[0], args[1]
+            self.actor = Actor(nb_states, nb_actions)
+            self.critic = Critic(nb_states)
 
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-5)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)
+            self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-5)
+            self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)
 
-        self.nb_actions = nb_actions
+            self.nb_actions = nb_actions
+
+        elif len(args) == 3:
+            nb_actions, actor_copy, critic_copy = args[0], args[1], args[2]
+            self.actor = actor_copy
+            self.critic = critic_copy
+
+            self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-5)
+            self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)
+
+            self.nb_actions = nb_actions
+
+        else:
+            raise ValueError("Unexpected arguments for ActorCritic constructor.")
 
     def get_policy(self, state):
         return self.actor(state)
@@ -74,3 +89,17 @@ class ActionCritic:
         self.critic_optimizer.step()
 
         return actor_loss.detach(), critic_loss.detach()
+
+    def copy(self):
+        actor_copy = self.actor
+        actor_copy.load_state_dict(self.actor.state_dict())
+
+        critic_copy = self.critic
+        critic_copy.load_state_dict(self.critic.state_dict())
+
+        return ActorCritic(self.nb_actions, actor_copy, critic_copy)
+
+    def share_memory(self):
+        self.actor.share_memory()
+        self.critic.share_memory()
+
