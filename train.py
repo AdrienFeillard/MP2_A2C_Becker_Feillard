@@ -27,6 +27,7 @@ def data_collection(state: np.array, nb_steps: int, env: gym.Env, actor_critic: 
 
         discounted_returns += gamma ** step * float(reward)
         step_state = torch.Tensor(next_state)
+
         step += 1
 
     discounted_returns += gamma ** step * (1 - terminated) * actor_critic.get_value(step_state)
@@ -97,7 +98,7 @@ def multistep_advantage_actor_critic(
         nb_steps: int,
         max_iter: int,
         lock: mp.Lock,
-        k : int = 1
+        k: int = 1
 ):
     env = gym.make('CartPole-v1')
     while it.value <= max_iter:
@@ -137,8 +138,9 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
         process.join()
 
 
-def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True, display_plot = False, nb_episodes: int = 10):
-    env = gym.make('CartPole-v1')
+def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True, display_plot=False,
+             nb_episodes: int = 10):
+    env = gym.make('CartPole-v1', render_mode='human')
 
     episode_returns = []
     plot_states = []
@@ -155,12 +157,14 @@ def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True,
             next_state, reward, terminated, truncated, _ = env.step(action)
             undiscounted_return += reward
             done = truncated or terminated
+            env.render()
 
             if e == nb_episodes - 1:
                 plot_states.append(state.detach())
                 plot_values.append(actor_critic.get_value(state).detach().item())
 
             state = torch.Tensor(next_state)
+
         episode_returns.append(undiscounted_return)
 
     utils.plot_critic_values(np.array(plot_states), plot_values, K, n_steps, n_iteration, save_plot, display_plot)
@@ -169,4 +173,4 @@ def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True,
 
 
 if __name__ == '__main__':
-    train_advantage_actor_critic(6, 6)
+    train_advantage_actor_critic(1, 1)
