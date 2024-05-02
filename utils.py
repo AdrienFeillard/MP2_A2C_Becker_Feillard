@@ -28,11 +28,10 @@ import matplotlib.pyplot as plt
     plt.tight_layout()
     plt.show()"""
 
-
 # Visualize the training results
 # plot_training_results()
 
-def plot_critic_values(states, values):
+def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, display=True):
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
     axs[0, 0].plot(states[:, 0], values, 'b.')
     axs[0, 0].set_title('Cart Position vs Value')
@@ -55,4 +54,13 @@ def plot_critic_values(states, values):
     axs[1, 1].set_ylabel('Critic Value')
 
     plt.tight_layout()
-    plt.show()
+    if save:
+        filename = f'critic_values_K{K}_steps{n_steps}_iter{n_iteration}.png'
+        plt.savefig(filename)
+        print(f"Plot saved as {filename}")
+
+    # Display the plot if the display flag is True
+    if display:
+        plt.show()
+    else:
+        plt.close()

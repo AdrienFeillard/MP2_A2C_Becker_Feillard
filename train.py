@@ -41,7 +41,8 @@ def multistep_advantage_actor_critic_episode(
         gamma: float,
         lock: mp.Lock,
         nb_steps: int = 1,
-        max_iter: int = 500000
+        max_iter: int = 500000,
+        k: int = 1
 ) -> float:
     """
     Run an episode of multistep A2C on the given environment.
@@ -75,7 +76,7 @@ def multistep_advantage_actor_critic_episode(
                 print(f"\nIteration {iteration.value}: \n\tActor loss = {actor_loss} \n\tCritic loss = {critic_loss}")
 
             if iteration.value % evaluate_interval == 0:
-                avg_return = evaluate(actor_critic)
+                avg_return = evaluate(actor_critic, k, nb_steps, iteration.value, True, False)
                 print(f"\nEvaluation at iteration {iteration.value}: \n\tAverage Return = {avg_return}")
 
             iteration.value += 1
@@ -95,7 +96,8 @@ def multistep_advantage_actor_critic(
         gamma: float,
         nb_steps: int,
         max_iter: int,
-        lock: mp.Lock
+        lock: mp.Lock,
+        k : int = 1
 ):
     env = gym.make('CartPole-v1')
     while it.value <= max_iter:
@@ -107,7 +109,8 @@ def multistep_advantage_actor_critic(
             gamma=gamma,
             nb_steps=nb_steps,
             max_iter=max_iter,
-            lock=lock
+            lock=lock,
+            k=k
         )
 
 
@@ -125,7 +128,7 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
     for _ in range(nb_actors):
         process = mp.Process(
             target=multistep_advantage_actor_critic,
-            args=(actor_critic, it, gamma, nb_steps, max_iter, lock)
+            args=(actor_critic, it, gamma, nb_steps, max_iter, lock, nb_actors)
         )
         process.start()
         processes.append(process)
@@ -134,7 +137,7 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
         process.join()
 
 
-def evaluate(actor_critic: ActorCritic, nb_episodes: int = 10):
+def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True, display_plot = False, nb_episodes: int = 10):
     env = gym.make('CartPole-v1')
 
     episode_returns = []
@@ -160,10 +163,10 @@ def evaluate(actor_critic: ActorCritic, nb_episodes: int = 10):
             state = torch.Tensor(next_state)
         episode_returns.append(undiscounted_return)
 
-    utils.plot_critic_values(np.array(plot_states), plot_values)
+    utils.plot_critic_values(np.array(plot_states), plot_values, K, n_steps, n_iteration, save_plot, display_plot)
 
     return np.mean(episode_returns)
 
 
 if __name__ == '__main__':
-    train_advantage_actor_critic(2, 1)
+    train_advantage_actor_critic(6, 6)
