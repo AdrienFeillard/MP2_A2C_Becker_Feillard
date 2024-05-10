@@ -28,11 +28,12 @@ import matplotlib.pyplot as plt
     plt.tight_layout()
     plt.show()"""
 
+
 # Visualize the training results
 # plot_training_results()
 
 def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, display=True):
-    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+    """fig, axs = plt.subplots(2, 2, figsize=(10, 8))
     axs[0, 0].plot(states[:, 0], values, 'b.')
     axs[0, 0].set_title('Cart Position vs Value')
     axs[0, 0].set_xlabel('Cart Position')
@@ -53,7 +54,20 @@ def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, disp
     axs[1, 1].set_xlabel('Pole Angular Velocity')
     axs[1, 1].set_ylabel('Critic Value')
 
-    plt.tight_layout()
+    plt.tight_layout()"""
+
+    time_steps = range(len(values))
+
+    plt.figure(figsize=(10, 5))  # Adjust the figure size as needed
+
+    plt.plot(time_steps, values, label='Value Function')
+
+    plt.title('Value Function Over Time')
+    plt.xlabel('Time Steps')
+    plt.ylabel('State-Value Estimate')
+    plt.legend()
+    plt.grid(True)
+
     if save:
         filename = f'critic_values_K{K}_steps{n_steps}_iter{n_iteration}.png'
         plt.savefig(filename)
