@@ -1,37 +1,36 @@
 import matplotlib.pyplot as plt
-
-# Function to plot the training results
-"""def plot_training_results():
-    plt.figure(figsize=(12, 5))
-
-    # Plotting episode rewards
-    plt.subplot(1, 3, 1)
-    plt.plot(all_episode_rewards)
-    plt.title('Episode Rewards')
-    plt.xlabel('Episode')
-    plt.ylabel('Total Reward')
-
-    # Plotting actor losses
-    plt.subplot(1, 3, 2)
-    plt.plot(actor_losses)
-    plt.title('Actor Loss')
-    plt.xlabel('Step')
-    plt.ylabel('Loss')
-
-    # Plotting critic losses
-    plt.subplot(1, 3, 3)
-    plt.plot(critic_losses)
-    plt.title('Critic Loss')
-    plt.xlabel('Step')
-    plt.ylabel('Loss')
-
-    plt.tight_layout()
-    plt.show()"""
+import numpy as np
 
 
-# Visualize the training results
-# plot_training_results()
+def plot_average_rewards(episodes_rewards, interval=100, show_plot = False, save_plot = True):
+    """
+    Plots the average rewards per specified number of episodes.
 
+    Parameters:
+    - episodes_rewards: list or array of episodic rewards.
+    - interval: the number of episodes per average (default is 100).
+    """
+    # Compute the number of intervals
+    num_intervals = len(episodes_rewards) // interval
+
+    # Calculate average rewards for each interval
+    average_rewards = [np.mean(episodes_rewards[i * interval:(i + 1) * interval]) for i in range(num_intervals)]
+
+    # Prepare x-axis labels
+    x_labels = [(i + 1) * interval for i in range(num_intervals)]
+
+    # Plotting
+    plt.figure(figsize=(10, 5))
+    plt.plot(x_labels, average_rewards, marker='o', linestyle='-')
+    plt.title('Average Rewards per {} Episodes'.format(interval))
+    plt.xlabel('Episodes')
+    plt.ylabel('Average Reward')
+    plt.grid(True)
+    plt.show()
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(f'rewards_plot_through_all_training.png')
 def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, display=True):
     """fig, axs = plt.subplots(2, 2, figsize=(10, 8))
     axs[0, 0].plot(states[:, 0], values, 'b.')

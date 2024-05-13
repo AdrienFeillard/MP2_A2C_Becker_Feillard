@@ -55,7 +55,8 @@ def multistep_advantage_actor_critic_episode(
 
     state, _ = env.reset()
     state = torch.Tensor(state)
-
+    episode_rewards = []
+    step_count = 0
     debug_infos_interval = 1000
     evaluate_interval = 20000
 
@@ -68,14 +69,20 @@ def multistep_advantage_actor_critic_episode(
             gamma
         )
         total_reward += rewards
-
+        step_count += nb_steps
         lock.acquire()
+        episode_rewards.append(total_reward)
         try:
             actor_loss, critic_loss = actor_critic.update(discounted_returns, state, action)
 
             if iteration.value % debug_infos_interval == 0:
                 print(f"\nIteration {iteration.value}: \n\tActor loss = {actor_loss} \n\tCritic loss = {critic_loss}")
-
+                #average_reward = total_reward / step_count
+                average_reward = np.mean(episode_rewards)
+                print(f"\nAt step {iteration.value}: Average Reward of last episodes = {average_reward}")
+                # Reset for the next 1000 steps
+                episode_rewards = []
+                step_count = 0
             if iteration.value % evaluate_interval == 0:
                 avg_return = evaluate(actor_critic, k, nb_steps, iteration.value, True, False)
                 print(f"\nEvaluation at iteration {iteration.value}: \n\tAverage Return = {avg_return}")
@@ -86,7 +93,7 @@ def multistep_advantage_actor_critic_episode(
 
         state = next_state
 
-    print(f"\nEnd of episode at iteration {iteration.value - 1}: \n\tEpisode reward = {total_reward}")
+    #print(f"\nEnd of episode at iteration {iteration.value - 1}: \n\tEpisode reward = {total_reward}")
 
     return total_reward
 
@@ -100,6 +107,7 @@ def multistep_advantage_actor_critic(
         lock: mp.Lock,
         k: int = 1
 ):
+    episodes_rewards = []
     env = gym.make('CartPole-v1')
     while it.value <= max_iter:
         # Run one episode of A2C
@@ -113,7 +121,8 @@ def multistep_advantage_actor_critic(
             lock=lock,
             k=k
         )
-
+        episodes_rewards.append(total_reward)
+    plot_average_rewards(episodes_rewards)
 
 def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter: int = 500000, gamma: int = 0.99):
     env = gym.make('CartPole-v1')
@@ -138,9 +147,14 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
         process.join()
 
 
-def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True, display_plot=False,
+def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, display_render=False, save_plot=True, display_plot=False,
              nb_episodes: int = 10):
-    env = gym.make('CartPole-v1', render_mode='human')
+
+    if display_render:
+        render_mode = 'human'
+    else:
+        render_mode = None
+    env = gym.make('CartPole-v1', render_mode=render_mode)
 
     episode_returns = []
     plot_states = []
@@ -166,7 +180,7 @@ def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True,
             state = torch.Tensor(next_state)
 
         episode_returns.append(undiscounted_return)
-
+    print(f"\nAverage Reward of 10 episodes at evaluation = {np.mean(episode_returns)}")
     utils.plot_critic_values(np.array(plot_states), plot_values, K, n_steps, n_iteration, save_plot, display_plot)
 
     return np.mean(episode_returns)
