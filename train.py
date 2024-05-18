@@ -1,5 +1,3 @@
-from typing import List
-
 import numpy as np
 import torch
 import gymnasium as gym
@@ -40,7 +38,7 @@ def multistep_advantage_actor_critic_episode(
         actor_critic: ActorCritic,
         iteration: mp.Value,
         gamma: float,
-        lock: mp.Lock,
+        barrier: mp.Barrier,
         nb_steps: int = 1,
         max_iter: int = 500000,
         k: int = 1
@@ -69,20 +67,17 @@ def multistep_advantage_actor_critic_episode(
         )
         total_reward += rewards
 
-        lock.acquire()
-        try:
-            actor_loss, critic_loss = actor_critic.update(discounted_returns, state, action)
+        barrier.wait()
+        actor_loss, critic_loss = actor_critic.update(discounted_returns, state, action)
 
-            if iteration.value % debug_infos_interval == 0:
-                print(f"\nIteration {iteration.value}: \n\tActor loss = {actor_loss} \n\tCritic loss = {critic_loss}")
+        if iteration.value % debug_infos_interval == 0:
+            print(f"\nIteration {iteration.value}: \n\tActor loss = {actor_loss} \n\tCritic loss = {critic_loss}")
 
-            if iteration.value % evaluate_interval == 0:
-                avg_return = evaluate(actor_critic, k, nb_steps, iteration.value, True, False)
-                print(f"\nEvaluation at iteration {iteration.value}: \n\tAverage Return = {avg_return}")
+        if iteration.value % evaluate_interval == 0:
+            avg_return = evaluate(actor_critic, k, nb_steps, iteration.value, True, False)
+            print(f"\nEvaluation at iteration {iteration.value}: \n\tAverage Return = {avg_return}")
 
-            iteration.value += 1
-        finally:
-            lock.release()
+        iteration.value += 1
 
         state = next_state
 
@@ -97,7 +92,7 @@ def multistep_advantage_actor_critic(
         gamma: float,
         nb_steps: int,
         max_iter: int,
-        lock: mp.Lock,
+        barrier: mp.Barrier,
         k: int = 1
 ):
     env = gym.make('CartPole-v1')
@@ -110,7 +105,7 @@ def multistep_advantage_actor_critic(
             gamma=gamma,
             nb_steps=nb_steps,
             max_iter=max_iter,
-            lock=lock,
+            barrier=barrier,
             k=k
         )
 
@@ -123,13 +118,13 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
     actor_critic = ActorCritic(nb_states, nb_actions)
     it = mp.Value('i', 1)
 
-    lock = mp.Lock()
+    barrier = mp.Barrier(nb_actors)
     actor_critic.share_memory()
     processes = []
     for _ in range(nb_actors):
         process = mp.Process(
             target=multistep_advantage_actor_critic,
-            args=(actor_critic, it, gamma, nb_steps, max_iter, lock, nb_actors)
+            args=(actor_critic, it, gamma, nb_steps, max_iter, barrier, nb_actors)
         )
         process.start()
         processes.append(process)
@@ -173,4 +168,6 @@ def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True,
 
 
 if __name__ == '__main__':
-    train_advantage_actor_critic(1, 1)
+    K = 3
+    for k in range(K):
+        train_advantage_actor_critic(2, 1)
