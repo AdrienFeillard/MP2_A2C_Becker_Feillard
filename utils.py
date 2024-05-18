@@ -1,37 +1,73 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
-# Function to plot the training results
-"""def plot_training_results():
-    plt.figure(figsize=(12, 5))
 
-    # Plotting episode rewards
-    plt.subplot(1, 3, 1)
-    plt.plot(all_episode_rewards)
-    plt.title('Episode Rewards')
-    plt.xlabel('Episode')
-    plt.ylabel('Total Reward')
+def plot_training_results(episodes_rewards, training_rewards, training_actor_losses, training_critic_losses, interval=100, show_plot = False, save_plot = True):
+    """
+    Plots the average rewards per specified number of episodes.
+
+    Parameters:
+    - episodes_rewards: list or array of episodic rewards.
+    - interval: the number of episodes per average (default is 100).
+    """
+    plt.figure(figsize=(15, 10))
+    #print(episodes_rewards)
+    print(training_rewards)
+    print(training_actor_losses)
+    print(training_critic_losses)
+    # Compute the number of intervals and average rewards for plotting
+    num_intervals = len(episodes_rewards) // interval
+    average_rewards = [np.mean(episodes_rewards[i * interval:(i + 1) * interval]) for i in range(num_intervals)]
+    x_labels = [(i + 1) * interval for i in range(num_intervals)]
+
+    # Plotting average rewards
+    plt.subplot(2, 2, 1)
+    plt.plot(x_labels, average_rewards, marker='o', linestyle='-')
+    plt.title('Average Rewards per {} Episodes'.format(interval))
+    plt.xlabel('Episodes')
+    plt.ylabel('Average Reward')
+
+    # Convert actor losses from tensors to a list of scalars
+    actor_losses_scalar = [loss[0].item() for loss in training_actor_losses]
 
     # Plotting actor losses
-    plt.subplot(1, 3, 2)
-    plt.plot(actor_losses)
-    plt.title('Actor Loss')
-    plt.xlabel('Step')
+    plt.subplot(2, 2, 2)
+    plt.plot(actor_losses_scalar, label='Actor Loss', color='red')
+    plt.title('Actor Losses Per Episode')
+    plt.xlabel('Episode')
     plt.ylabel('Loss')
+    plt.legend()
 
     # Plotting critic losses
-    plt.subplot(1, 3, 3)
-    plt.plot(critic_losses)
-    plt.title('Critic Loss')
-    plt.xlabel('Step')
+    # Convert critic losses from tensors to a list of scalars
+    critic_losses_scalar = [loss[0].item() for loss in training_critic_losses]
+
+    # Plotting critic losses
+    plt.subplot(2, 2, 3)
+    plt.plot(critic_losses_scalar, label='Critic Loss', color='blue')
+    plt.title('Critic Losses Per Episode')
+    plt.xlabel('Episode')
     plt.ylabel('Loss')
+    plt.legend()
+    """
+    # Convert training rewards from tensors to a list of scalars
+    training_rewards_scalar = [reward[0].item() for reward in training_rewards]
+
+    # Plotting training rewards for each episode
+    plt.subplot(2, 2, 4)
+    plt.plot(training_rewards_scalar, label='Training Rewards', color='green')
+    plt.title('Training Rewards Per Episode')
+    plt.xlabel('Episode')
+    plt.ylabel('Total Reward')
+    plt.legend()
+    """
 
     plt.tight_layout()
-    plt.show()"""
 
-
-# Visualize the training results
-# plot_training_results()
-
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig('training_results.png', dpi=300)
 def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, display=True):
     """fig, axs = plt.subplots(2, 2, figsize=(10, 8))
     axs[0, 0].plot(states[:, 0], values, 'b.')

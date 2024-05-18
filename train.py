@@ -3,6 +3,9 @@ import torch
 import gymnasium as gym
 import torch.multiprocessing as mp
 
+from torch.utils.tensorboard import SummaryWriter
+from multiprocessing import Manager
+
 import utils
 from A2C import ActorCritic
 
@@ -53,7 +56,11 @@ def multistep_advantage_actor_critic_episode(
 
     state, _ = env.reset()
     state = torch.Tensor(state)
-
+    episode_rewards = []
+    training_rewards = []
+    training_actor_losses = []
+    training_critic_losses = []
+    step_count = 0
     debug_infos_interval = 1000
     evaluate_interval = 20000
 
@@ -68,22 +75,39 @@ def multistep_advantage_actor_critic_episode(
         total_reward += rewards
 
         barrier.wait()
+        step_count += nb_steps
+        episode_rewards.append(total_reward)
+        writer.add_scalar('Training/Total Reward', total_reward, iteration.value)
+
         actor_loss, critic_loss = actor_critic.update(discounted_returns, state, action)
+
+        training_actor_losses.append(actor_loss)
+        training_critic_losses.append(critic_loss)
+
+        writer.add_scalar('Loss/Actor', actor_loss.item(), iteration.value)
+        writer.add_scalar('Loss/Critic', critic_loss.item(), iteration.value)
 
         if iteration.value % debug_infos_interval == 0:
             print(f"\nIteration {iteration.value}: \n\tActor loss = {actor_loss} \n\tCritic loss = {critic_loss}")
-
+            # average_reward = total_reward / step_count
+            average_reward = np.mean(episode_rewards)
+            print(f"\nAt step {iteration.value}: Average Reward of last episodes = {average_reward}")
+            # Reset for the next 1000 steps
+            episode_rewards = []
+            step_count = 0
         if iteration.value % evaluate_interval == 0:
-            avg_return = evaluate(actor_critic, k, nb_steps, iteration.value, True, False)
+            avg_return = evaluate(actor_critic, k, nb_steps, iteration.value, display_render=False,
+                                  save_plot=True,
+                                  display_plot=False, nb_episodes=10)
             print(f"\nEvaluation at iteration {iteration.value}: \n\tAverage Return = {avg_return}")
 
         iteration.value += 1
 
         state = next_state
 
-    print(f"\nEnd of episode at iteration {iteration.value - 1}: \n\tEpisode reward = {total_reward}")
+    # print(f"\nEnd of episode at iteration {iteration.value - 1}: \n\tEpisode reward = {total_reward}")
 
-    return total_reward
+    return total_reward, training_rewards, training_actor_losses, training_critic_losses, episode_rewards
 
 
 def multistep_advantage_actor_critic(
@@ -95,10 +119,15 @@ def multistep_advantage_actor_critic(
         barrier: mp.Barrier,
         k: int = 1
 ):
+    episodes_rewards = []
+    training_rewards = []
+    training_actor_losses = []
+    training_critic_losses = []
     env = gym.make('CartPole-v1')
+
     while it.value <= max_iter:
         # Run one episode of A2C
-        total_reward = multistep_advantage_actor_critic_episode(
+        total_reward, training_rewards, training_actor_losses, training_critic_losses, episode_rewards = multistep_advantage_actor_critic_episode(
             env=env,
             actor_critic=actor_critic,
             iteration=it,
@@ -109,6 +138,13 @@ def multistep_advantage_actor_critic(
             k=k
         )
 
+        episodes_rewards.append(total_reward)
+        training_rewards.append(training_rewards)
+        training_actor_losses.append(training_actor_losses)
+        training_critic_losses.append(training_critic_losses)
+    utils.plot_training_results(episodes_rewards, training_rewards, training_actor_losses, training_critic_losses,
+                                show_plot=False, save_plot=True)
+
 
 def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter: int = 500000, gamma: int = 0.99):
     env = gym.make('CartPole-v1')
@@ -118,6 +154,7 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
     actor_critic = ActorCritic(nb_states, nb_actions)
     it = mp.Value('i', 1)
 
+    manager = Manager()
     barrier = mp.Barrier(nb_actors)
     actor_critic.share_memory()
     processes = []
@@ -133,41 +170,68 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
         process.join()
 
 
-def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, save_plot=True, display_plot=False,
+def evaluate(actor_critic: ActorCritic, K, n_steps, n_iteration, display_render=False, save_plot=True,
+             display_plot=False,
              nb_episodes: int = 10):
-    env = gym.make('CartPole-v1', render_mode='human')
+    if display_render:
+        render_mode = 'human'
+    else:
+        render_mode = None
+    env = gym.make('CartPole-v1', render_mode=render_mode)
 
+    episode_values = []
     episode_returns = []
     plot_states = []
     plot_values = []
-
+    value_during_episode = []
+    print(nb_episodes)
     for e in range(nb_episodes):
         state, _ = env.reset()
         state = torch.Tensor(state)
         done = False
         undiscounted_return = 0
-
+        print(e)
         while not done:
             action = actor_critic.take_best_action(state)
             next_state, reward, terminated, truncated, _ = env.step(action)
             undiscounted_return += reward
             done = truncated or terminated
             env.render()
-
+            writer.add_scalar(f'Evaluation/Reward_{e}', undiscounted_return, n_iteration)
+            writer.add_scalar(f'Evaluation/Value_{e}', actor_critic.get_value(state).item(), n_iteration)
+            value = actor_critic.get_value(state).item()
+            value_during_episode.append(value)
             if e == nb_episodes - 1:
+                # print("last episode",e)
                 plot_states.append(state.detach())
                 plot_values.append(actor_critic.get_value(state).detach().item())
+                episode_values.append(actor_critic.get_value(state).item())
+                """
+                for timestep, value in enumerate(value_during_episode):
+                    #print(timestep,value)
+                    writer.add_scalar('Evaluation/Value_Function', value, timestep)
+                """
+            for timestep, value in enumerate(episode_values):
+                writer.add_scalar('Evaluation/Value_Function_Last_Episode', value, timestep)
 
             state = torch.Tensor(next_state)
 
         episode_returns.append(undiscounted_return)
-
+    print(f"\nAverage Reward of 10 episodes at evaluation = {np.mean(episode_returns)}")
     utils.plot_critic_values(np.array(plot_states), plot_values, K, n_steps, n_iteration, save_plot, display_plot)
 
+    # After collecting all values
+    # Calculate and log the mean value function over the trajectory
+    mean_value = np.mean(value_during_episode)
+    writer.add_scalar('Evaluation/Mean_Value_Function', mean_value, n_iteration)
     return np.mean(episode_returns)
 
 
+writer = SummaryWriter('runs/advantage_actor_critic_experiment')
+
 if __name__ == '__main__':
-    K = 3
-    for k in range(K):
-        train_advantage_actor_critic(2, 1)
+    """
+    for seed in range(3):
+    """
+
+    train_advantage_actor_critic(1, 1, max_iter=500000)
