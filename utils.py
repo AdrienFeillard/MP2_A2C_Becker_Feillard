@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_training_results(episodes_rewards, training_rewards, training_actor_losses, training_critic_losses, interval=100, show_plot = False, save_plot = True):
+def plot_training_results(episodes_rewards, training_rewards, training_actor_losses, training_critic_losses,
+                          interval=100, show_plot=False, save_plot=True):
     """
     Plots the average rewards per specified number of episodes.
 
@@ -11,7 +12,7 @@ def plot_training_results(episodes_rewards, training_rewards, training_actor_los
     - interval: the number of episodes per average (default is 100).
     """
     plt.figure(figsize=(15, 10))
-    #print(episodes_rewards)
+    # print(episodes_rewards)
     print(training_rewards)
     print(training_actor_losses)
     print(training_critic_losses)
@@ -68,30 +69,9 @@ def plot_training_results(episodes_rewards, training_rewards, training_actor_los
         plt.show()
     if save_plot:
         plt.savefig('training_results.png', dpi=300)
+
+
 def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, display=True):
-    """fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-    axs[0, 0].plot(states[:, 0], values, 'b.')
-    axs[0, 0].set_title('Cart Position vs Value')
-    axs[0, 0].set_xlabel('Cart Position')
-    axs[0, 0].set_ylabel('Critic Value')
-
-    axs[0, 1].plot(states[:, 1], values, 'g.')
-    axs[0, 1].set_title('Cart Velocity vs Value')
-    axs[0, 1].set_xlabel('Cart Velocity')
-    axs[0, 1].set_ylabel('Critic Value')
-
-    axs[1, 0].plot(states[:, 2], values, 'r.')
-    axs[1, 0].set_title('Pole Angle vs Value')
-    axs[1, 0].set_xlabel('Pole Angle')
-    axs[1, 0].set_ylabel('Critic Value')
-
-    axs[1, 1].plot(states[:, 3], values, 'm.')
-    axs[1, 1].set_title('Pole Angular Velocity vs Value')
-    axs[1, 1].set_xlabel('Pole Angular Velocity')
-    axs[1, 1].set_ylabel('Critic Value')
-
-    plt.tight_layout()"""
-
     time_steps = range(len(values))
 
     plt.figure(figsize=(10, 5))  # Adjust the figure size as needed
