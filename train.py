@@ -165,7 +165,7 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
     env = gym.make('CartPole-v1')
     nb_states = env.observation_space.shape[0]
     nb_actions = env.action_space.n
-
+    env.reset(seed=5)
     actor_critic = ActorCritic(nb_states, nb_actions)
     it = mp.Value('i', 1)
 
@@ -232,11 +232,13 @@ def evaluate(
                     #print(timestep,value)
                     writer.add_scalar('Evaluation/Value_Function', value, timestep)
                 """
-            for timestep, value in enumerate(episode_values):
-                writer.add_scalar('Evaluation/Value_Function_Last_Episode', value, timestep)
+
 
             state = torch.Tensor(next_state)
-
+        for timestep, value in enumerate(episode_values):
+            print(timestep)
+            print("value: ", value)
+            writer.add_scalar('Evaluation/Value_Function_Last_Episode', value, timestep)
         episode_returns.append(undiscounted_return)
 
     mean_return = np.mean(episode_returns)
@@ -258,4 +260,4 @@ if __name__ == '__main__':
     for seed in range(3):
     """
 
-    train_advantage_actor_critic(1, 1, max_iter=500000)
+    train_advantage_actor_critic(1, 1, max_iter=50000)

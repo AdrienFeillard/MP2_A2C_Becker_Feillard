@@ -13,9 +13,9 @@ def plot_training_results(episodes_rewards, training_rewards, training_actor_los
     """
     plt.figure(figsize=(15, 10))
     # print(episodes_rewards)
-    print(training_rewards)
-    print(training_actor_losses)
-    print(training_critic_losses)
+    #print(training_rewards)
+    #print(training_actor_losses)
+    #print(training_critic_losses)
     # Compute the number of intervals and average rewards for plotting
     num_intervals = len(episodes_rewards) // interval
     average_rewards = [np.mean(episodes_rewards[i * interval:(i + 1) * interval]) for i in range(num_intervals)]
