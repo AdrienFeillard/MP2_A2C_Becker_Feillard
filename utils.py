@@ -68,7 +68,7 @@ def plot_training_results(episodes_rewards, training_rewards, training_actor_los
     if show_plot:
         plt.show()
     if save_plot:
-        plt.savefig('training_results.png', dpi=300)
+        plt.savefig('plots/training_results.png', dpi=300)
 
 
 def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, display=True):
@@ -85,7 +85,7 @@ def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, disp
     plt.grid(True)
 
     if save:
-        filename = f'critic_values_K{K}_steps{n_steps}_iter{n_iteration}.png'
+        filename = f'plots/critic_values_K{K}_steps{n_steps}_iter{n_iteration}.png'
         plt.savefig(filename)
         print(f"Plot saved as {filename}")
 
