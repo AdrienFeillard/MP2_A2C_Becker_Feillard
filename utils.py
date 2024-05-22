@@ -71,7 +71,7 @@ def plot_training_results(episodes_rewards, training_rewards, training_actor_los
         plt.savefig('plots/training_results.png', dpi=300)
 
 
-def plot_critic_values(states, values, K, n_steps, n_iteration, save=False, display=True):
+def plot_critic_values(values, K, n_steps, n_iteration, save=False, display=True):
     time_steps = range(len(values))
 
     plt.figure(figsize=(10, 5))  # Adjust the figure size as needed

@@ -66,8 +66,9 @@ class ActorCritic:
         return self.critic(state)
 
     def sample_action(self, state):
-        policy = self.get_policy(state).detach().numpy()
-        return np.random.choice(np.arange(self.nb_actions), p=policy)
+        policy = self.get_policy(state)
+        dist = torch.distributions.Categorical(policy)
+        return dist.sample()
 
     def take_best_action(self, state):
         policy = self.get_policy(state).detach().numpy()
@@ -81,14 +82,15 @@ class ActorCritic:
         # Update actor params
         actor_loss = (-advantage * torch.log(self.get_policy(state)[action])) / (n * K)
         self.actor_optimizer.zero_grad()
-        actor_loss.backward(retain_graph=True)
+        actor_loss.backward()
         self.actor_optimizer.step()
 
-        # Update critic params
-        # critic_loss = ((discounted_returns - self.get_value(state)) ** 2) / (n * K)
         # Use semi-gradient instead of full gradient
+        # critic_loss = ((discounted_returns - self.get_value(state)) ** 2) / (n * K)
         with torch.no_grad():
             target = discounted_returns
+
+        # Update critic params
         critic_loss = ((target - value) ** 2) / (n * K)
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
