@@ -8,7 +8,7 @@ import utils
 from A2C import ActorCritic
 
 
-def data_collection(state: np.array, nb_steps: int, env: gym.Env, actor_critic: ActorCritic, gamma: float):
+def data_collection(state: np.array, nb_steps: int, env: gym.Env, actor_critic: ActorCritic, gamma: float, mask: bool):
     discounted_returns = 0.0
     step_state = state
     actions = []
@@ -25,7 +25,12 @@ def data_collection(state: np.array, nb_steps: int, env: gym.Env, actor_critic: 
         next_state, reward, terminated, truncated, _ = env.step(action.item())
         done = terminated or truncated
 
-        discounted_returns += (gamma ** step) * float(reward)
+
+        if mask and np.random.rand() < 0.9:  # 90% chance to zero out the reward
+            discounted_returns += 0
+        else:
+            discounted_returns += (gamma ** step) * float(reward)
+
         step_state = torch.Tensor(next_state)
         step += 1
 
@@ -49,6 +54,7 @@ def multistep_advantage_actor_critic_episode(
         nb_steps: int = 1,
         max_iter: int = 500000,
         k: int = 1,
+        mask: bool = False,
 ):
     """
     Run an episode of multistep A2C on the given environment.
@@ -66,7 +72,8 @@ def multistep_advantage_actor_critic_episode(
             nb_steps,
             env,
             actor_critic,
-            gamma
+            gamma,
+            mask
         )
         total_reward += rewards
 
@@ -110,7 +117,8 @@ def multistep_advantage_actor_critic(
         gamma: float,
         nb_steps: int,
         max_iter: int,
-        k: int = 1
+        k: int = 1,
+        mask: bool = False
 ):
     episodes_rewards = []
 
@@ -130,18 +138,19 @@ def multistep_advantage_actor_critic(
             nb_steps=nb_steps,
             max_iter=max_iter,
             k=k,
+            mask=mask
         )
         episodes_rewards.append(total_reward)
         state, _ = env.reset()
 
 
-def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter: int = 500000, gamma: int = 0.99):
+def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter: int = 500000, gamma: int = 0.99, mask: bool = False):
     env = gym.make('CartPole-v1')
     nb_states = env.observation_space.shape[0]
     nb_actions = env.action_space.n
     actor_critic = ActorCritic(nb_states, nb_actions)
 
-    multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors)
+    multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors, mask=mask)
 
 
 def evaluate(
@@ -218,6 +227,6 @@ if __name__ == '__main__':
 
     for seed in range(nb_seeds):
         # writer = SummaryWriter(f'runs/Seed_{seed}')
-        train_advantage_actor_critic(1, 1, max_iter=500000)
+        train_advantage_actor_critic(1, 1, max_iter=500000, mask=True)
 
 
