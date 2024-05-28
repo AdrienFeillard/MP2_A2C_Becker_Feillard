@@ -87,11 +87,9 @@ class ActorCritic:
 
         # Use semi-gradient instead of full gradient
         # critic_loss = ((discounted_returns - self.get_value(state)) ** 2) / (n * K)
-        with torch.no_grad():
-            target = discounted_returns
 
         # Update critic params
-        critic_loss = ((target - value) ** 2) / (n * K)
+        critic_loss = ((discounted_returns - value) ** 2) / (n * K)
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
