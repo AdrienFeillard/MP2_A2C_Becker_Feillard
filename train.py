@@ -2,8 +2,6 @@ import numpy as np
 import torch
 import gymnasium as gym
 
-from torch.utils.tensorboard import SummaryWriter
-
 import utils
 from A2C import ActorCritic
 
@@ -72,16 +70,14 @@ def multistep_advantage_actor_critic_episode(
 
         actor_loss, critic_loss = actor_critic.update(discounted_returns, state, action, nb_steps, k)
 
-        # writer.add_scalar('Loss/Actor', actor_loss.item(), iteration)
-        # writer.add_scalar('Loss/Critic', critic_loss.item(), iteration)
-        actor_losses[seed].append(actor_loss)
-        critic_losses[seed].append(critic_loss)
-
         if iteration % debug_infos_interval == 0:
             average_reward = np.mean(episode_rewards)
             # writer.add_scalar('Training/Average Undiscounted Return', average_reward, iteration)
-            tr_avg_undisc_returns[seed].append(average_reward)
+            tr_avg_undisc_returns[seed].append(average_reward.item())
             print(f"\nAt step {iteration}: \n\tAverage Reward of last episodes = {average_reward}")
+
+            actor_losses[seed].append(actor_loss.item())
+            critic_losses[seed].append(critic_loss.item())
             print(f"\tActor loss = {actor_loss}")
             print(f"\tCritic loss = {critic_loss}")
             # Reset for the next 1000 steps
@@ -91,7 +87,6 @@ def multistep_advantage_actor_critic_episode(
             evaluate(
                 actor_critic,
                 k,
-                nb_steps,
                 iteration,
                 display_render=False,
                 save_plot=True,
@@ -189,35 +184,39 @@ def evaluate(
         episode_returns.append(undiscounted_return)
 
     mean_return = np.mean(episode_returns)
-    # writer.add_scalar('Evaluation/Mean_Undiscounted_Return', mean_return, n_iteration)
-    eval_avg_undisc_returns[seed].append(mean_return)
+    eval_avg_undisc_returns[seed].append(mean_return.item())
     print(f"\nMean undiscounted return for evaluation at step {n_iteration} = {mean_return}")
-    # utils.plot_values_over_trajectory(plot_values, K, n_steps, n_iteration, save_plot, display_plot)
 
     # After collecting all values
     # Calculate and log the mean value function over the trajectory
     mean_value = np.mean(episode_values)
-    # writer.add_scalar('Evaluation/Mean_Value_Function', mean_value, n_iteration)
-    eval_mean_traj_values[seed].append(mean_value)
+    eval_mean_traj_values[seed].append(mean_value.item())
 
     utils.plot_values_over_trajectory(seed, plot_values, actor, n_iteration, save=save_plot, display=display_plot)
-    """
-    for timestep, value in enumerate(last_episode_values):
-        writer.add_scalar(f'Evaluation/Trajectories/Evaluation_{n_iteration // 20000}_Value_Function_Last_Episode', value, timestep)
-    """
 
 
 if __name__ == '__main__':
+    max_iter = 500000
     nb_seeds = 3
-    empty = [[] for _ in range(nb_seeds)]
-    tr_avg_undisc_returns = empty.copy()
-    eval_avg_undisc_returns = empty.copy()
-    eval_mean_traj_values = empty.copy()
-    actor_losses = empty.copy()
-    critic_losses = empty.copy()
+    nb_actors = 1
+    nb_steps = 1
+
+    tr_avg_undisc_returns = [[] for _ in range(nb_seeds)]
+    eval_avg_undisc_returns = [[] for _ in range(nb_seeds)]
+    eval_mean_traj_values = [[] for _ in range(nb_seeds)]
+    actor_losses = [[] for _ in range(nb_seeds)]
+    critic_losses = [[] for _ in range(nb_seeds)]
 
     for seed in range(nb_seeds):
-        # writer = SummaryWriter(f'runs/Seed_{seed}')
-        train_advantage_actor_critic(1, 1, max_iter=500000)
+        train_advantage_actor_critic(nb_actors, nb_steps, max_iter=max_iter)
+
+    utils.plot_training_results(
+        tr_avg_undisc_returns,
+        eval_avg_undisc_returns,
+        eval_mean_traj_values,
+        actor_losses,
+        critic_losses,
+        actor=1
+    )
 
 
