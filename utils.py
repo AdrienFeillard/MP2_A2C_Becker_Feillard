@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def aggregate_plot(iterations, values, ylabel, title, actor, name, log_scale=False, symlog_scale=False):
+def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, symlog_scale=False):
     assert not log_scale or not symlog_scale, "Cannot use both log and symlog scale at the same time"
 
     plt.figure(figsize=(10, 5))  # Adjust the figure size as needed
@@ -26,7 +26,7 @@ def aggregate_plot(iterations, values, ylabel, title, actor, name, log_scale=Fal
     plt.legend()
     plt.grid(True)
 
-    path = f'plots/actor_{actor}'
+    path = 'plots'
     os.makedirs(path, exist_ok=True)
 
     filename = f'{path}/{name}.png'
@@ -41,7 +41,6 @@ def plot_training_results(
         eval_mean_traj_values,
         actor_losses,
         critic_losses,
-        actor=1,
 ):
     tr_returns = np.array(tr_avg_undisc_returns)
     eval_returns = np.array(eval_avg_undisc_returns)
@@ -57,8 +56,7 @@ def plot_training_results(
         tr_returns,
         'Return',
         'Average Undiscounted Training Return',
-        actor,
-        'tr_avg_undisc_return'
+        'tr_avg_undisc_return',
     )
 
     aggregate_plot(
@@ -66,7 +64,6 @@ def plot_training_results(
         eval_returns,
         'Return',
         'Average Undiscounted Evaluation Return',
-        actor,
         'eval_avg_undisc_return'
     )
 
@@ -75,7 +72,6 @@ def plot_training_results(
         eval_trajec_values,
         'Mean Value',
         'Mean Trajectory Value Function Over Evaluation',
-        actor,
         'eval_mean_traj_values'
     )
 
@@ -84,7 +80,6 @@ def plot_training_results(
         actor_losses,
         'Loss',
         'Actor Loss Over Training',
-        actor,
         'actor_losses',
         False,
         True
@@ -95,13 +90,12 @@ def plot_training_results(
         critic_losses,
         'Loss',
         'Critic Loss Over Training',
-        actor,
         'critic_losses',
         True
     )
 
 
-def plot_values_over_trajectory(seed, values, actor, n_iteration, save=True, display=False):
+def plot_values_over_trajectory(seed, values, n_iteration, save=True, display=False):
     time_steps = range(len(values))
 
     plt.figure(figsize=(10, 5))  # Adjust the figure size as needed
@@ -114,7 +108,7 @@ def plot_values_over_trajectory(seed, values, actor, n_iteration, save=True, dis
     plt.legend()
     plt.grid(True)
 
-    path = f'plots/actor_{actor}/values_over_trajectory/seed_{seed}'
+    path = f'plots/values_over_trajectory/seed_{seed}'
     os.makedirs(path, exist_ok=True)
 
     if save:

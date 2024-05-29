@@ -74,22 +74,27 @@ class ActorCritic:
         policy = self.get_policy(state).detach().numpy()
         return np.argmax(policy)
 
-    def update(self, discounted_returns, state, action, n, K):
-        value = self.get_value(state)
+    def get_actions_prob(self, states, actions):
+        probas = torch.Tensor(states.shape)
+        for k in range(states.shape[0]):
+            probas[k] = self.get_policy(states[k])[actions[k]]
+        return probas
+
+    def update(self, discounted_returns, states, actions, n):
+        K = states.shape[0]
+        discounted_returns = discounted_returns.unsqueeze(-1)
+        values = self.get_value(states)
         with torch.no_grad():
-            advantage = discounted_returns - value
+            advantage = discounted_returns - values
 
         # Update actor params
-        actor_loss = (-advantage * torch.log(self.get_policy(state)[action])) / (n * K)
+        actor_loss = (-advantage * torch.log(self.get_actions_prob(states, actions))).sum() / (n * K)
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        # Use semi-gradient instead of full gradient
-        # critic_loss = ((discounted_returns - self.get_value(state)) ** 2) / (n * K)
-
         # Update critic params
-        critic_loss = ((discounted_returns - value) ** 2) / (n * K)
+        critic_loss = torch.sum((discounted_returns - values) ** 2) / (n * K)
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()

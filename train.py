@@ -6,14 +6,21 @@ import utils
 from A2C import ActorCritic
 
 
-def data_collection(state: np.array, nb_steps: int, env: gym.Env, actor_critic: ActorCritic, gamma: float, mask: bool):
-    discounted_returns = 0.0
+def data_collection(
+        state: np.array,
+        nb_steps: int,
+        env: gym.Env,
+        actor_critic: ActorCritic,
+        gamma: float,
+        mask: bool
+):
+    discounted_return = 0.0
     step_state = state
     actions = []
     terminated = False
     truncated = False
     done = terminated or truncated
-    total_reward = 0.0
+    undiscounted_return = 0.0
 
     step = 0
     while step < nb_steps and not done:
@@ -23,123 +30,123 @@ def data_collection(state: np.array, nb_steps: int, env: gym.Env, actor_critic: 
         next_state, reward, terminated, truncated, _ = env.step(action.item())
         done = terminated or truncated
 
-
-        if mask and np.random.rand() < 0.9:  # 90% chance to zero out the reward
-            discounted_returns += 0
-        else:
-            discounted_returns += (gamma ** step) * float(reward)
+        discounted_reward = (gamma ** step) * float(reward)
+        if mask:
+            # 90% chance to zero out the reward
+            discounted_reward = np.random.choice([0, discounted_reward], p=[0.9, 0.1])
+        discounted_return += discounted_reward
 
         step_state = torch.Tensor(next_state)
         step += 1
 
-        total_reward += reward
+        undiscounted_return += reward
 
     # TODO: for n steps always have batches of n
     with torch.no_grad():
         value = actor_critic.get_value(step_state)
-    discounted_returns += (gamma ** step) * (1 - terminated) * value
+    discounted_return += (gamma ** step) * (1 - terminated) * value
 
-    return actions[0], step_state, discounted_returns, total_reward, done
+    return actions[0], step_state, discounted_return, undiscounted_return, done
 
 
-def multistep_advantage_actor_critic_episode(
-        env: gym.Env,
+def multistep_advantage_actor_critic(
         actor_critic: ActorCritic,
-        iteration: int,
         gamma: float,
-        state: torch.Tensor,
-        episode_rewards: list,
-        nb_steps: int = 1,
-        max_iter: int = 500000,
-        k: int = 1,
-        mask: bool = False,
+        n: int,
+        max_iter: int,
+        K: int = 1,
+        mask: bool = False
 ):
-    """
-    Run an episode of multistep A2C on the given environment.
-    """
-
-    total_reward = 0
-    done = False
-
     debug_infos_interval = 1000
     evaluate_interval = 20000
+    current_debug_threshold = debug_infos_interval
+    current_eval_threshold = evaluate_interval
 
-    while iteration <= max_iter and not done:
-        action, next_state, discounted_returns, rewards, done = data_collection(
-            state,
-            nb_steps,
-            env,
-            actor_critic,
-            gamma,
-            mask
-        )
-        total_reward += rewards
+    envs = [gym.make('CartPole-v1') for _ in range(K)]
+    states = torch.stack([torch.Tensor(envs[k].reset(seed=K * seed + k)[0]) for k in range(K)])
 
-        actor_loss, critic_loss = actor_critic.update(discounted_returns, state, action, nb_steps, k)
+    it = 1
 
-        if iteration % debug_infos_interval == 0:
-            average_reward = np.mean(episode_rewards)
-            # writer.add_scalar('Training/Average Undiscounted Return', average_reward, iteration)
-            tr_avg_undisc_returns[seed].append(average_reward.item())
-            print(f"\nAt step {iteration}: \n\tAverage Reward of last episodes = {average_reward}")
+    episode_returns = [0 for _ in range(K)]
+    episodes_returns = []
+    episodes_returns_interval = []
+
+    while it <= max_iter:
+        actions = []
+        next_states = []
+        discounted_returns = torch.zeros(K)
+        dones = [False for _ in range(K)]
+        for k in range(K):
+            action, next_state, discounted_return, undiscounted_return, done = data_collection(
+                states[k],
+                n,
+                envs[k],
+                actor_critic,
+                gamma,
+                mask
+            )
+            actions.append(action)
+            next_states.append(next_state)
+            discounted_returns[k] = discounted_return
+            episode_returns[k] += undiscounted_return
+            dones[k] = done
+
+        actor_loss, critic_loss = actor_critic.update(discounted_returns, states, actions, n)
+
+        done_returns = np.array(episode_returns)[np.array(dones)]
+        if len(done_returns) > 0:
+            mean_return = np.mean(done_returns)
+            episodes_returns.append(mean_return)
+            episodes_returns_interval.append(mean_return)
+
+        if it >= current_debug_threshold:
+            # Keep latest available return
+            tr_avg_undisc_returns[seed].append(episodes_returns[-1])
+
+            average_reward = np.mean(episodes_returns_interval)
+
+            # Reset for the next 1000 steps
+            episodes_returns_interval = []
+            print(
+                f"At step {it}:\n"
+                f"\tAverage Return of episodes in last {debug_infos_interval} steps = {average_reward}"
+            )
 
             actor_losses[seed].append(actor_loss.item())
             critic_losses[seed].append(critic_loss.item())
             print(f"\tActor loss = {actor_loss}")
-            print(f"\tCritic loss = {critic_loss}")
-            # Reset for the next 1000 steps
-            episode_rewards = []
+            print(f"\tCritic loss = {critic_loss}\n")
 
-        if iteration % evaluate_interval == 0:
+            current_debug_threshold += debug_infos_interval
+
+        if it >= current_eval_threshold:
             evaluate(
                 actor_critic,
-                k,
-                iteration,
+                it,
                 display_render=False,
                 save_plot=True,
                 display_plot=False,
                 nb_episodes=10
             )
 
-        iteration += 1
-        state = next_state
+            current_eval_threshold += evaluate_interval
 
-    return total_reward, episode_rewards, iteration
+        it += K * n
+        states = torch.stack(next_states)
+
+        for k in range(K):
+            if dones[k]:
+                episode_returns[k] = 0
+                states[k] = torch.Tensor(envs[k].reset()[0])
 
 
-def multistep_advantage_actor_critic(
-        actor_critic: ActorCritic,
-        gamma: float,
-        nb_steps: int,
-        max_iter: int,
-        k: int = 1,
+def train_advantage_actor_critic(
+        nb_actors: int = 1,
+        nb_steps: int = 1,
+        max_iter: int = 500000,
+        gamma: int = 0.99,
         mask: bool = False
 ):
-    episodes_rewards = []
-
-    env = gym.make('CartPole-v1')
-    state, _ = env.reset(seed=seed)
-
-    it = 1
-    while it <= max_iter:
-        # Run one episode of A2C
-        total_reward, episodes_rewards, it = multistep_advantage_actor_critic_episode(
-            env=env,
-            actor_critic=actor_critic,
-            iteration=it,
-            gamma=gamma,
-            state=torch.Tensor(state),
-            episode_rewards=episodes_rewards,
-            nb_steps=nb_steps,
-            max_iter=max_iter,
-            k=k,
-            mask=mask
-        )
-        episodes_rewards.append(total_reward)
-        state, _ = env.reset()
-
-
-def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter: int = 500000, gamma: int = 0.99, mask: bool = False):
     env = gym.make('CartPole-v1')
     nb_states = env.observation_space.shape[0]
     nb_actions = env.action_space.n
@@ -150,7 +157,6 @@ def train_advantage_actor_critic(nb_actors: int = 1, nb_steps: int = 1, max_iter
 
 def evaluate(
         actor_critic: ActorCritic,
-        actor: int,
         n_iteration,
         display_render=False,
         save_plot=True,
@@ -201,14 +207,14 @@ def evaluate(
     mean_value = np.mean(episode_values)
     eval_mean_traj_values[seed].append(mean_value.item())
 
-    utils.plot_values_over_trajectory(seed, plot_values, actor, n_iteration, save=save_plot, display=display_plot)
+    utils.plot_values_over_trajectory(seed, plot_values, n_iteration, save=save_plot, display=display_plot)
 
 
 if __name__ == '__main__':
-    max_iter = 500000
+    max_iterations = 500000
     nb_seeds = 3
-    nb_actors = 1
-    nb_steps = 1
+    K = 6
+    n = 1
 
     tr_avg_undisc_returns = [[] for _ in range(nb_seeds)]
     eval_avg_undisc_returns = [[] for _ in range(nb_seeds)]
@@ -217,7 +223,7 @@ if __name__ == '__main__':
     critic_losses = [[] for _ in range(nb_seeds)]
 
     for seed in range(nb_seeds):
-        train_advantage_actor_critic(nb_actors, nb_steps, max_iter=max_iter, mask=True)
+        train_advantage_actor_critic(K, n, max_iter=max_iterations, mask=True)
 
     utils.plot_training_results(
         tr_avg_undisc_returns,
@@ -225,7 +231,4 @@ if __name__ == '__main__':
         eval_mean_traj_values,
         actor_losses,
         critic_losses,
-        actor=1
     )
-
-
