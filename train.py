@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import torch
 import gymnasium as gym
@@ -7,46 +9,65 @@ from A2C import ActorCritic
 
 
 def data_collection(
-        state: np.array,
-        nb_steps: int,
-        env: gym.Env,
+        states: torch.Tensor,
+        envs: List[gym.Env],
         actor_critic: ActorCritic,
+        K: int,
+        n: int,
         gamma: float,
         mask: bool
 ):
-    discounted_return = 0.0
-    step_state = state
-    actions = []
-    terminated = False
-    truncated = False
-    done = terminated or truncated
-    undiscounted_return = 0.0
+    actions = [[None for _ in range(n)] for _ in range(K)]
+    next_states = [[torch.empty([]) for _ in range(n)] for _ in range(K)]
+    terminated_arr = [[False for _ in range(n)] for _ in range(K)]
+    truncated_arr = [[False for _ in range(n)] for _ in range(K)]
+    dones = [[False for _ in range(n)] for _ in range(K)]
 
-    step = 0
-    while step < nb_steps and not done:
-        # Compute action
-        action = actor_critic.sample_action(step_state)
-        actions.append(action)
-        next_state, reward, terminated, truncated, _ = env.step(action.item())
-        done = terminated or truncated
+    rewards = torch.zeros((K, n))
+    logging_rewards = torch.zeros((K, n))
 
-        discounted_reward = (gamma ** step) * float(reward)
-        if mask:
-            # 90% chance to zero out the reward
-            discounted_reward = np.random.choice([0, discounted_reward], p=[0.9, 0.1])
-        discounted_return += discounted_reward
+    for k in range(K):
+        tmp_state = states[k]
+        for i in range(n):
+            # Compute action
+            action = actor_critic.sample_action(tmp_state)
+            next_state, reward, terminated, truncated, _ = envs[k].step(action.item())
+            if terminated or truncated:
+                next_state = envs[k].reset()[0]
+            actions[k][i] = action
+            next_states[k][i] = torch.Tensor(next_state)
+            terminated_arr[k][i] = terminated
+            truncated_arr[k][i] = truncated
+            dones[k][i] = terminated or truncated
 
-        step_state = torch.Tensor(next_state)
-        step += 1
+            rewards[k, i] = float(reward)
+            logging_rewards[k, i] = float(reward)
 
-        undiscounted_return += reward
+            if mask:
+                # 90% chance to zero out the reward
+                rewards[k, i] = np.random.choice([0, rewards[k, i]], p=[0.9, 0.1])
 
-    # TODO: for n steps always have batches of n
-    with torch.no_grad():
-        value = actor_critic.get_value(step_state)
-    discounted_return += (gamma ** step) * (1 - terminated) * value
+            tmp_state = next_states[k][i]
 
-    return actions[0], step_state, discounted_return, undiscounted_return, done
+    targets = torch.zeros((K, n))
+    for k in range(K):
+        for i in range(n):
+            target = 0
+            j_end = n-1
+            for j in range(i, n):
+                target += (gamma ** (j - i)) * rewards[k, j]
+                if terminated_arr[k][j] or truncated_arr[k][j]:
+                    j_end = j
+                    break
+            with torch.no_grad():
+                value = actor_critic.get_value(next_states[k][j_end])
+            target += (gamma ** (j_end - i + 1)) * (1 - terminated_arr[k][j_end]) * value.squeeze()
+            targets[k, i] = target
+
+    actions = torch.stack([torch.stack(actions[k]) for k in range(K)])
+    next_states = torch.stack([torch.stack(next_states[k]) for k in range(K)])
+
+    return actions, next_states, targets, logging_rewards, dones
 
 
 def multistep_advantage_actor_critic(
@@ -72,32 +93,30 @@ def multistep_advantage_actor_critic(
     episodes_returns_interval = []
 
     while it <= max_iter:
-        actions = []
-        next_states = []
-        discounted_returns = torch.zeros(K)
-        dones = [False for _ in range(K)]
-        for k in range(K):
-            action, next_state, discounted_return, undiscounted_return, done = data_collection(
-                states[k],
-                n,
-                envs[k],
-                actor_critic,
-                gamma,
-                mask
-            )
-            actions.append(action)
-            next_states.append(next_state)
-            discounted_returns[k] = discounted_return
-            episode_returns[k] += undiscounted_return
-            dones[k] = done
+        actions, next_states, targets, rewards, dones = data_collection(
+            states,
+            envs,
+            actor_critic,
+            K,
+            n,
+            gamma,
+            mask
+        )
+        states = torch.cat([states[:, None, :], next_states], dim=1)
 
-        actor_loss, critic_loss = actor_critic.update(discounted_returns, states, actions, n)
+        actor_loss, critic_loss = actor_critic.update(targets, states[:, :-1], actions)
 
-        done_returns = np.array(episode_returns)[np.array(dones)]
-        if len(done_returns) > 0:
-            mean_return = np.mean(done_returns)
-            episodes_returns.append(mean_return)
-            episodes_returns_interval.append(mean_return)
+        for i in range(rewards.shape[1]):
+            for k in range(rewards.shape[0]):
+                episode_returns[k] += rewards[k, i]
+            done_returns = np.array(episode_returns)[np.array(dones)[:, i]]
+            if len(done_returns) > 0:
+                mean_return = np.mean(done_returns)
+                episodes_returns.append(mean_return)
+                episodes_returns_interval.append(mean_return)
+                for k in range(rewards.shape[0]):
+                    if dones[k][i]:
+                        episode_returns[k] = 0
 
         if it >= current_debug_threshold:
             # Keep latest available return
@@ -132,12 +151,7 @@ def multistep_advantage_actor_critic(
             current_eval_threshold += evaluate_interval
 
         it += K * n
-        states = torch.stack(next_states)
-
-        for k in range(K):
-            if dones[k]:
-                episode_returns[k] = 0
-                states[k] = torch.Tensor(envs[k].reset()[0])
+        states = states[:, -1]
 
 
 def train_advantage_actor_critic(
@@ -215,6 +229,7 @@ if __name__ == '__main__':
     nb_seeds = 3
     K = 6
     n = 1
+    mask = True
 
     tr_avg_undisc_returns = [[] for _ in range(nb_seeds)]
     eval_avg_undisc_returns = [[] for _ in range(nb_seeds)]
@@ -223,7 +238,7 @@ if __name__ == '__main__':
     critic_losses = [[] for _ in range(nb_seeds)]
 
     for seed in range(nb_seeds):
-        train_advantage_actor_critic(K, n, max_iter=max_iterations, mask=True)
+        train_advantage_actor_critic(K, n, max_iter=max_iterations, mask=mask)
 
     utils.plot_training_results(
         tr_avg_undisc_returns,
