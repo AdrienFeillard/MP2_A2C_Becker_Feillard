@@ -31,10 +31,11 @@ def data_collection(
         for i in range(n):
             # Compute action
             action = actor_critic.sample_action(tmp_state)
-            next_state, reward, terminated, truncated, _ = envs[k].step(action.item())
+            actions[k][i] = action
+            action = torch.clamp(action, -3, 3).detach().numpy() if actor_critic.continuous else action.item()
+            next_state, reward, terminated, truncated, _ = envs[k].step(action)
             if terminated or truncated:
                 next_state = envs[k].reset()[0]
-            actions[k][i] = action
             next_states[k][i] = torch.Tensor(next_state)
             terminated_arr[k][i] = terminated
             truncated_arr[k][i] = truncated
@@ -83,7 +84,8 @@ def multistep_advantage_actor_critic(
     current_debug_threshold = debug_infos_interval
     current_eval_threshold = evaluate_interval
 
-    envs = [gym.make('CartPole-v1') for _ in range(K)]
+    env_name = 'InvertedPendulum-v4' if actor_critic.continuous else 'CartPole-v1'
+    envs = [gym.make(env_name) for _ in range(K)]
     states = torch.stack([torch.Tensor(envs[k].reset(seed=K * seed + k)[0]) for k in range(K)])
 
     it = 1
@@ -155,16 +157,18 @@ def multistep_advantage_actor_critic(
 
 
 def train_advantage_actor_critic(
+        env_name: str,
         nb_actors: int = 1,
         nb_steps: int = 1,
         max_iter: int = 500000,
         gamma: int = 0.99,
         mask: bool = False
 ):
-    env = gym.make('CartPole-v1')
+    env = gym.make(env_name)
     nb_states = env.observation_space.shape[0]
-    nb_actions = env.action_space.n
-    actor_critic = ActorCritic(nb_states, nb_actions)
+    continuous = env_name == 'InvertedPendulum-v4'
+    nb_actions = 1 if continuous else env.action_space.n
+    actor_critic = ActorCritic(nb_states, nb_actions, continuous)
 
     multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors, mask=mask)
 
@@ -181,7 +185,8 @@ def evaluate(
         render_mode = "human"
     else:
         render_mode = None
-    env = gym.make('CartPole-v1', render_mode=render_mode)
+    env_name = 'InvertedPendulum-v4' if actor_critic.continuous else 'CartPole-v1'
+    env = gym.make(env_name, render_mode=render_mode)
 
     episode_values = []
     episode_returns = []
@@ -225,11 +230,19 @@ def evaluate(
 
 
 if __name__ == '__main__':
-    max_iterations = 500000
+    env_choice = input("Enter the environment (1 for 'CartPole-v1', 2 for 'InvertedPendulum-v4'): ")
+    if env_choice == '1':
+        env = 'CartPole-v1'
+    elif env_choice == '2':
+        env = 'InvertedPendulum-v4'
+    else:
+        raise ValueError("Invalid input! Please enter 1 or 2.")
+    K = int(input("Enter the number of parallel actors (default 1): ") or 1)
+    n = int(input("Enter the number of steps for n-step returns (default 1): ") or 1)
+    max_iterations = int(input("Enter the maximum number of iterations (default 500000): ") or 500000)
+    mask = (input("Apply reward masking? (y/n, default 'y'): ") or 'y') == 'y'
+
     nb_seeds = 3
-    K = 6
-    n = 1
-    mask = True
 
     tr_avg_undisc_returns = [[] for _ in range(nb_seeds)]
     eval_avg_undisc_returns = [[] for _ in range(nb_seeds)]
@@ -238,7 +251,7 @@ if __name__ == '__main__':
     critic_losses = [[] for _ in range(nb_seeds)]
 
     for seed in range(nb_seeds):
-        train_advantage_actor_critic(K, n, max_iter=max_iterations, mask=mask)
+        train_advantage_actor_critic(env, K, n, max_iter=max_iterations, mask=mask)
 
     utils.plot_training_results(
         tr_avg_undisc_returns,
