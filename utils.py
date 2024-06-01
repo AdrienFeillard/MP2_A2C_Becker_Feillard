@@ -48,6 +48,15 @@ def plot_training_results(
     actor_losses = np.array(actor_losses)
     critic_losses = np.array(critic_losses)
 
+    np.savez(
+        'plots/plot_arrays.npz',
+        tr_returns=tr_returns,
+        eval_returns=eval_returns,
+        eval_trajec_values=eval_trajec_values,
+        actor_losses=actor_losses,
+        critic_losses=critic_losses
+    )
+
     tr_iterations = [1000 * i for i in range(1, len(tr_returns[0]) + 1)]
     eval_iterations = [20000 * i for i in range(1, len(eval_returns[0]) + 1)]
 
@@ -82,7 +91,6 @@ def plot_training_results(
         'Actor Loss Over Training',
         'actor_losses',
         False,
-        True
     )
 
     aggregate_plot(
