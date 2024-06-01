@@ -8,14 +8,23 @@ class Actor(nn.Module):
     def __init__(self, nb_states, nb_actions, continuous=False):
         super(Actor, self).__init__()
         self.continuous = continuous
-        self.network = nn.Sequential(
-            nn.Linear(nb_states, 64),
-            nn.Tanh(),
-            nn.Linear(64, 64),
-            nn.Tanh(),
-            nn.Linear(64, nb_actions),
-            nn.Softmax(dim=-1),
-        )
+        if continuous:
+            self.network = nn.Sequential(
+                nn.Linear(nb_states, 64),
+                nn.Tanh(),
+                nn.Linear(64, 64),
+                nn.Tanh(),
+                nn.Linear(64, 1),
+            )
+        else:
+            self.network = nn.Sequential(
+                nn.Linear(nb_states, 64),
+                nn.Tanh(),
+                nn.Linear(64, 64),
+                nn.Tanh(),
+                nn.Linear(64, nb_actions),
+                nn.Softmax(dim=-1),
+            )
         self.log_std = nn.Parameter(torch.zeros(nb_actions)) if continuous else None
 
     def forward(self, state):
@@ -41,11 +50,11 @@ class Critic(nn.Module):
 
 
 class ActorCritic:
-    def __init__(self, nb_states, nb_actions, continuous=False):
+    def __init__(self, nb_states, nb_actions, lr_actor=1e-5, continuous=False):
         self.actor = Actor(nb_states, nb_actions, continuous)
         self.critic = Critic(nb_states)
 
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-5)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=lr_actor)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)
 
         self.nb_actions = nb_actions
@@ -115,3 +124,10 @@ class ActorCritic:
         self.critic_optimizer.step()
 
         return actor_loss.detach(), critic_loss.detach()
+
+    def print_grads(self):
+        print('Nb non-zero actor grads:')
+        count = 0
+        for param in self.actor.parameters():
+            count += torch.count_nonzero(param.grad)
+        print(count)

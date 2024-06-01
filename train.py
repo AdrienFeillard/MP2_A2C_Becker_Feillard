@@ -162,13 +162,14 @@ def train_advantage_actor_critic(
         nb_steps: int = 1,
         max_iter: int = 500000,
         gamma: int = 0.99,
+        lr_actor: float = 1e-5,
         mask: bool = False
 ):
     env = gym.make(env_name)
     nb_states = env.observation_space.shape[0]
     continuous = env_name == 'InvertedPendulum-v4'
     nb_actions = 1 if continuous else env.action_space.n
-    actor_critic = ActorCritic(nb_states, nb_actions, continuous)
+    actor_critic = ActorCritic(nb_states, nb_actions, lr_actor, continuous)
 
     multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors, mask=mask)
 
@@ -239,6 +240,7 @@ if __name__ == '__main__':
         raise ValueError("Invalid input! Please enter 1 or 2.")
     K = int(input("Enter the number of parallel actors (default 1): ") or 1)
     n = int(input("Enter the number of steps for n-step returns (default 1): ") or 1)
+    lr_actor = float(input("Enter the learning rate for the actor (default 1e-5): ") or 1e-5)
     max_iterations = int(input("Enter the maximum number of iterations (default 500000): ") or 500000)
     mask = (input("Apply reward masking? (y/n, default 'y'): ") or 'y') == 'y'
 
@@ -251,7 +253,7 @@ if __name__ == '__main__':
     critic_losses = [[] for _ in range(nb_seeds)]
 
     for seed in range(nb_seeds):
-        train_advantage_actor_critic(env, K, n, max_iter=max_iterations, mask=mask)
+        train_advantage_actor_critic(env, K, n, lr_actor=lr_actor, max_iter=max_iterations, mask=mask)
 
     utils.plot_training_results(
         tr_avg_undisc_returns,
