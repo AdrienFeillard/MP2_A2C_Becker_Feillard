@@ -244,7 +244,7 @@ if __name__ == '__main__':
     max_iterations = int(input("Enter the maximum number of iterations (default 500000): ") or 500000)
     mask = (input("Apply reward masking? (y/n, default 'y'): ") or 'y') == 'y'
 
-    nb_seeds = 3
+    nb_seeds = 1
 
     tr_avg_undisc_returns = [[] for _ in range(nb_seeds)]
     eval_avg_undisc_returns = [[] for _ in range(nb_seeds)]
