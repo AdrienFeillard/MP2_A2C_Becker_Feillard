@@ -183,13 +183,3 @@ class ActorCritic:
         self.critic_optimizer.step()
 
         return actor_loss.detach(), critic_loss.detach()
-
-    def print_grads(self):
-        """
-        Prints the number of non-zero gradients in the actor network.
-        """
-        print('Nb non-zero actor grads:')
-        count = 0
-        for param in self.actor.parameters():
-            count += torch.count_nonzero(param.grad)
-        print(count)

@@ -5,6 +5,7 @@ import gymnasium as gym
 import utils
 from A2C import ActorCritic
 
+
 def data_collection(
         states: torch.Tensor,
         envs: List[gym.Env],
@@ -15,7 +16,7 @@ def data_collection(
         mask: bool
 ) -> tuple:
     """
-    Collects data from the environments for K parallel actors.
+    Collects data from the environments for K parallel actors and n-steps.
 
     Args:
         states (torch.Tensor): Current states of the environments.
@@ -66,9 +67,10 @@ def data_collection(
     for k in range(K):
         for i in range(n):
             target = 0
-            j_end = n-1
+            j_end = n - 1
             for j in range(i, n):
                 target += (gamma ** (j - i)) * rewards[k, j]
+                # Stop sum if truncated or terminated and keep track where
                 if terminated_arr[k][j] or truncated_arr[k][j]:
                     j_end = j
                     break
@@ -81,6 +83,7 @@ def data_collection(
     next_states = torch.stack([torch.stack(next_states[k]) for k in range(K)])
 
     return actions, next_states, targets, logging_rewards, dones
+
 
 def multistep_advantage_actor_critic(
         actor_critic: ActorCritic,
@@ -177,6 +180,7 @@ def multistep_advantage_actor_critic(
         it += K * n
         states = states[:, -1]
 
+
 def train_advantage_actor_critic(
         env_name: str,
         nb_actors: int = 1,
@@ -205,6 +209,7 @@ def train_advantage_actor_critic(
     actor_critic = ActorCritic(nb_states, nb_actions, lr_actor, continuous)
 
     multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors, mask=mask)
+
 
 def evaluate(
         actor_critic: ActorCritic,
@@ -271,6 +276,7 @@ def evaluate(
     eval_mean_traj_values[seed].append(mean_value.item())
 
     utils.plot_values_over_trajectory(seed, plot_values, n_iteration, save=save_plot, display=display_plot)
+
 
 if __name__ == '__main__':
     env_choice = input("Enter the environment (1 for 'CartPole-v1', 2 for 'InvertedPendulum-v4'): ")

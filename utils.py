@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def exponential_moving_average(data, alpha=0.3):
     """
     Computes the exponential moving average of the provided data.
@@ -18,6 +19,7 @@ def exponential_moving_average(data, alpha=0.3):
     for t in range(1, len(data)):
         ema[t] = alpha * data[t] + (1 - alpha) * ema[t - 1]
     return ema
+
 
 def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, symlog_scale=False):
     """
@@ -51,7 +53,8 @@ def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, sym
     plt.fill_between(iterations, min_values, max_values, alpha=0.3, color='lightblue', label='Min-Max Range (Raw)')
     plt.plot(iterations, avg_values, label='Average (Raw)', color='blue')
 
-    plt.fill_between(adjusted_iterations, smoothed_min_values, smoothed_max_values, alpha=0.5, color='lightgreen', label='Min-Max Range (Smoothed)')
+    plt.fill_between(adjusted_iterations, smoothed_min_values, smoothed_max_values, alpha=0.5, color='lightgreen',
+                     label='Min-Max Range (Smoothed)')
     plt.plot(adjusted_iterations, smoothed_avg_values, label='Average (Smoothed)', color='green')
 
     plt.plot(adjusted_iterations, smoothed_min_values, label='Min (Smoothed)', color='red', linestyle='dashed')
@@ -74,6 +77,7 @@ def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, sym
     plt.savefig(filename)
     plt.close()
     print(f"Plot saved as {filename}")
+
 
 def plot_training_results(
         tr_avg_undisc_returns,
@@ -151,6 +155,7 @@ def plot_training_results(
         'critic_losses',
         True
     )
+
 
 def plot_values_over_trajectory(seed, values, n_iteration, save=True, display=False):
     """
