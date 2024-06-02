@@ -118,212 +118,212 @@ def plot_training_results(
             actor_losses=actor_losses,
             critic_losses=critic_losses
         )
+    else:
+        """
+        Loads data from plot arrays and generates plots for training and evaluation results.
+        """
+        plots_arrays = []
+        for i in range(1, 8):
+            path = f'plots/agent{i}/plot_arrays.npz' if i != 7 else f'plots/agent1_stoch/plot_arrays.npz'
+            plots_arrays.append(np.load(path))
 
-    """
-    Loads data from plot arrays and generates plots for training and evaluation results.
-    """
-    plots_arrays = []
-    for i in range(1, 8):
-        path = f'plots/agent{i}/plot_arrays.npz' if i != 7 else f'plots/agent1_stoch/plot_arrays.npz'
-        plots_arrays.append(np.load(path))
+        tr_iterations = [1000 * i for i in range(1, len(plots_arrays[0]['tr_returns'][0]))]
+        eval_iterations = [20000 * i for i in range(1, len(plots_arrays[0]['eval_returns'][0]))]
 
-    tr_iterations = [1000 * i for i in range(1, len(plots_arrays[0]['tr_returns'][0]))]
-    eval_iterations = [20000 * i for i in range(1, len(plots_arrays[0]['eval_returns'][0]))]
+        tr_returns_arrays = [plots_arrays[i]['tr_returns'] for i in range(7)]
+        eval_returns_arrays = [plots_arrays[i]['eval_returns'] for i in range(7)]
+        eval_trajec_values_arrays = [plots_arrays[i]['eval_trajec_values'] for i in range(7)]
+        actor_arrays = [plots_arrays[i]['actor_losses'] for i in range(7)]
+        critic_arrays = [plots_arrays[i]['critic_losses'] for i in range(7)]
 
-    tr_returns_arrays = [plots_arrays[i]['tr_returns'] for i in range(7)]
-    eval_returns_arrays = [plots_arrays[i]['eval_returns'] for i in range(7)]
-    eval_trajec_values_arrays = [plots_arrays[i]['eval_trajec_values'] for i in range(7)]
-    actor_arrays = [plots_arrays[i]['actor_losses'] for i in range(7)]
-    critic_arrays = [plots_arrays[i]['critic_losses'] for i in range(7)]
-
-    aggregate_plots(
-        tr_iterations,
-        eval_iterations,
-        [eval_trajec_values_arrays[-1][:, :-1], eval_trajec_values_arrays[1], eval_trajec_values_arrays[2],
-         eval_trajec_values_arrays[3]],
-        ['1_stoch', '2', '3', '4'],
-        'Critic value',
-        None,
-        'eval_trajec_values_1_2_3_4',
-        log_scale=False
-    )
-
-    aggregate_plots(
-        tr_iterations,
-        eval_iterations,
-        [eval_trajec_values_arrays[4][:, :-1], eval_trajec_values_arrays[5]],
-        ['5', '6'],
-        'Critic value',
-        None,
-        'eval_trajec_values_5_6',
-        log_scale=False
-    )
-
-    aggregate_plots(
-        tr_iterations,
-        eval_iterations,
-        [eval_trajec_values_arrays[0][:, :24]],
-        ['1'],
-        'Critic value',
-        None,
-        'eval_trajec_values_1',
-        log_scale=False
-    )
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [actor_arrays[0][:, :499]],
-                    ['1'],
-                    'Actor loss',
-                    None,
-                    'actor_loss_1',
-                    log_scale=False,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [actor_arrays[-1][:, :499]],
-                    ['1 stoch'],
-                    'Actor loss',
-                    None,
-                    'actor_loss_1_stoch',
-                    log_scale=False,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [actor_arrays[1][:, :499]],
-                    ['2'],
-                    'Actor loss',
-                    None,
-                    'actor_loss_2',
-                    log_scale=False,
-                    smoothing=True)
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [actor_arrays[2][:, :499]],
-                    ['3'],
-                    'Actor loss',
-                    None,
-                    'actor_loss_3',
-                    log_scale=False,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [actor_arrays[3][:, :499]],
-                    ['4'],
-                    'Actor loss',
-                    None,
-                    'actor_loss_4',
-                    log_scale=False,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [actor_arrays[4][:, :499]],
-                    ['5'],
-                    'Actor loss',
-                    None,
-                    'actor_loss_5',
-                    log_scale=False,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [actor_arrays[5][:, :499]],
-                    ['6'],
-                    'Actor loss',
-                    None,
-                    'actor_loss_6',
-                    log_scale=False,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [critic_arrays[0][:, :499]],
-                    ['1'],
-                    'Critic loss',
-                    None,
-                    'critic_loss_1',
-                    log_scale=True,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [critic_arrays[1][:, :499]],
-                    ['2'],
-                    'Critic loss',
-                    None,
-                    'critic_loss_2',
-                    log_scale=True,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [critic_arrays[2][:, :499]],
-                    ['3'],
-                    'Critic loss',
-                    None,
-                    'critic_loss_3',
-                    log_scale=True,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [critic_arrays[3][:, :499]],
-                    ['4'],
-                    'Critic loss',
-                    None,
-                    'critic_loss_4',
-                    log_scale=True,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [critic_arrays[4][:, :499]],
-                    ['5'],
-                    'Critic loss',
-                    None,
-                    'critic_loss_5',
-                    log_scale=True,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [critic_arrays[5][:, :499]],
-                    ['6'],
-                    'Critic loss',
-                    None,
-                    'critic_loss_6',
-                    log_scale=True,
-                    smoothing=True)
-
-    aggregate_plots(tr_iterations,
-                    eval_iterations,
-                    [critic_arrays[6][:, :499]],
-                    ['1_stoch'],
-                    'Critic loss',
-                    None,
-                    'critic_loss_1_stoch',
-                    log_scale=True,
-                    smoothing=True)
-
-    ############
-    # Plot training and evaluation returns for each agent
-    for i in range(7):
         aggregate_plots(
             tr_iterations,
             eval_iterations,
-            [tr_returns_arrays[i][:, :499], eval_returns_arrays[i][:, :24]],
-            [f'{i + 1} training', f'{i + 1} evaluation'],
-            'Undiscounted return',
+            [eval_trajec_values_arrays[-1][:, :-1], eval_trajec_values_arrays[1], eval_trajec_values_arrays[2],
+             eval_trajec_values_arrays[3]],
+            ['1_stoch', '2', '3', '4'],
+            'Critic value',
             None,
-            f'tr_return_{i + 1}',
-            log_scale=False,
-            smoothing=True,
-            plot_eval=True
+            'eval_trajec_values_1_2_3_4',
+            log_scale=False
         )
+
+        aggregate_plots(
+            tr_iterations,
+            eval_iterations,
+            [eval_trajec_values_arrays[4][:, :-1], eval_trajec_values_arrays[5]],
+            ['5', '6'],
+            'Critic value',
+            None,
+            'eval_trajec_values_5_6',
+            log_scale=False
+        )
+
+        aggregate_plots(
+            tr_iterations,
+            eval_iterations,
+            [eval_trajec_values_arrays[0][:, :24]],
+            ['1'],
+            'Critic value',
+            None,
+            'eval_trajec_values_1',
+            log_scale=False
+        )
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [actor_arrays[0][:, :499]],
+                        ['1'],
+                        'Actor loss',
+                        None,
+                        'actor_loss_1',
+                        log_scale=False,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [actor_arrays[-1][:, :499]],
+                        ['1 stoch'],
+                        'Actor loss',
+                        None,
+                        'actor_loss_1_stoch',
+                        log_scale=False,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [actor_arrays[1][:, :499]],
+                        ['2'],
+                        'Actor loss',
+                        None,
+                        'actor_loss_2',
+                        log_scale=False,
+                        smoothing=True)
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [actor_arrays[2][:, :499]],
+                        ['3'],
+                        'Actor loss',
+                        None,
+                        'actor_loss_3',
+                        log_scale=False,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [actor_arrays[3][:, :499]],
+                        ['4'],
+                        'Actor loss',
+                        None,
+                        'actor_loss_4',
+                        log_scale=False,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [actor_arrays[4][:, :499]],
+                        ['5'],
+                        'Actor loss',
+                        None,
+                        'actor_loss_5',
+                        log_scale=False,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [actor_arrays[5][:, :499]],
+                        ['6'],
+                        'Actor loss',
+                        None,
+                        'actor_loss_6',
+                        log_scale=False,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [critic_arrays[0][:, :499]],
+                        ['1'],
+                        'Critic loss',
+                        None,
+                        'critic_loss_1',
+                        log_scale=True,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [critic_arrays[1][:, :499]],
+                        ['2'],
+                        'Critic loss',
+                        None,
+                        'critic_loss_2',
+                        log_scale=True,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [critic_arrays[2][:, :499]],
+                        ['3'],
+                        'Critic loss',
+                        None,
+                        'critic_loss_3',
+                        log_scale=True,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [critic_arrays[3][:, :499]],
+                        ['4'],
+                        'Critic loss',
+                        None,
+                        'critic_loss_4',
+                        log_scale=True,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [critic_arrays[4][:, :499]],
+                        ['5'],
+                        'Critic loss',
+                        None,
+                        'critic_loss_5',
+                        log_scale=True,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [critic_arrays[5][:, :499]],
+                        ['6'],
+                        'Critic loss',
+                        None,
+                        'critic_loss_6',
+                        log_scale=True,
+                        smoothing=True)
+
+        aggregate_plots(tr_iterations,
+                        eval_iterations,
+                        [critic_arrays[6][:, :499]],
+                        ['1_stoch'],
+                        'Critic loss',
+                        None,
+                        'critic_loss_1_stoch',
+                        log_scale=True,
+                        smoothing=True)
+
+        ############
+        # Plot training and evaluation returns for each agent
+        for i in range(7):
+            aggregate_plots(
+                tr_iterations,
+                eval_iterations,
+                [tr_returns_arrays[i][:, :499], eval_returns_arrays[i][:, :24]],
+                [f'{i + 1} training', f'{i + 1} evaluation'],
+                'Undiscounted return',
+                None,
+                f'tr_return_{i + 1}',
+                log_scale=False,
+                smoothing=True,
+                plot_eval=True
+            )
 
 
 def plot_values_over_trajectory(seed, values, n_iteration, name, save=True, display=False):

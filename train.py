@@ -290,12 +290,15 @@ if __name__ == '__main__':
         env = 'InvertedPendulum-v4'
     else:
         raise ValueError("Invalid input! Please enter 1 or 2.")
-    K = int(input("Enter the number of parallel actors (default 1): ") or 1)
-    n = int(input("Enter the number of steps for n-step returns (default 1): ") or 1)
+    K = int(input("Enter the number of parallel actors 1 or 6 (default 1): ") or 1)
+    n = int(input("Enter the number of steps for n-step returns 1 or 6 (default 1): ") or 1)
     lr_actor = float(input("Enter the learning rate for the actor (default 1e-5): ") or 1e-5)
     max_iterations = int(input("Enter the maximum number of iterations (default 500000): ") or 500000)
     mask = (input("Apply reward masking? (y/n, default 'y'): ") or 'y') == 'y'
-    plot = (input("Create plots or train and creat plots? (enter p for plots and t for train, default 't'): ") or 't') == 'p'
+    plot = ((input("Create plots or train? Carefull! If you haven't trained all the agents separately you will get an "
+                  "error when trying to plot the results. No need to specify parameters value once you trained all "
+                   "agents  (enter p for plots and t for train, default 't'): ") or 't')
+            == 'p')
 
     nb_seeds = 3
 
