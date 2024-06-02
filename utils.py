@@ -1,7 +1,6 @@
 import os
-import matplotlib.pyplot as plt
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 def exponential_moving_average(data, alpha=0.3):
     """
@@ -20,52 +19,62 @@ def exponential_moving_average(data, alpha=0.3):
         ema[t] = alpha * data[t] + (1 - alpha) * ema[t - 1]
     return ema
 
-
-def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, symlog_scale=False):
+def aggregate_plots(tr_iterations, eval_iterations, array, agents, ylabel, title, name, log_scale=False, smoothing=False, plot_eval=False):
     """
-    Plots the aggregate results with optional smoothing.
+    Plots the aggregate results with optional smoothing and evaluation data.
 
     Args:
-        iterations (list): List of iteration steps.
-        values (np.ndarray): Values to plot.
+        tr_iterations (list): Training iteration steps.
+        eval_iterations (list): Evaluation iteration steps.
+        array (list): Values to plot.
+        agents (list): List of agent identifiers.
         ylabel (str): Y-axis label.
         title (str): Plot title.
         name (str): Filename for saving the plot.
         log_scale (bool): If True, use logarithmic scale for y-axis.
-        symlog_scale (bool): If True, use symmetric logarithmic scale for y-axis.
+        smoothing (bool): If True, apply smoothing.
+        plot_eval (bool): If True, include evaluation data in the plot.
     """
-    assert not log_scale or not symlog_scale, "Cannot use both log and symlog scale at the same time"
-
     plt.figure(figsize=(10, 5))  # Adjust the figure size as needed
 
-    min_values = np.min(values, axis=0)
-    max_values = np.max(values, axis=0)
-    avg_values = np.mean(values, axis=0)
+    if smoothing:
+        # Apply smoothing
+        min_values = np.min(array[0], axis=0)
+        max_values = np.max(array[0], axis=0)
+        avg_values = np.mean(array[0], axis=0)
 
-    # Apply smoothing
-    alpha = 0.3  # Smoothing factor
-    smoothed_min_values = exponential_moving_average(min_values, alpha)
-    smoothed_max_values = exponential_moving_average(max_values, alpha)
-    smoothed_avg_values = exponential_moving_average(avg_values, alpha)
+        alpha = 0.1  # Smoothing factor
 
-    adjusted_iterations = iterations[:len(smoothed_avg_values)]
+        smoothed_min_values = exponential_moving_average(min_values, alpha)
+        smoothed_max_values = exponential_moving_average(max_values, alpha)
+        smoothed_avg_values = exponential_moving_average(avg_values, alpha)
 
-    plt.fill_between(iterations, min_values, max_values, alpha=0.3, color='lightblue', label='Min-Max Range (Raw)')
-    plt.plot(iterations, avg_values, label='Average (Raw)', color='blue')
+        adjusted_iterations = tr_iterations[:len(smoothed_avg_values)]
 
-    plt.fill_between(adjusted_iterations, smoothed_min_values, smoothed_max_values, alpha=0.5, color='lightgreen',
-                     label='Min-Max Range (Smoothed)')
-    plt.plot(adjusted_iterations, smoothed_avg_values, label='Average (Smoothed)', color='green')
+        plt.plot(tr_iterations, avg_values, label='Average (Raw)', color='steelblue')
 
-    plt.plot(adjusted_iterations, smoothed_min_values, label='Min (Smoothed)', color='red', linestyle='dashed')
-    plt.plot(adjusted_iterations, smoothed_max_values, label='Max (Smoothed)', color='red', linestyle='dashed')
+        plt.fill_between(adjusted_iterations, smoothed_min_values, smoothed_max_values, alpha=0.5, color='lightsalmon', label='Min-Max Range (Smoothed)')
+        plt.plot(adjusted_iterations, smoothed_avg_values, label='Average (Smoothed)', color='red')
+
+        if plot_eval:
+            min_values = np.min(array[1], axis=0)
+            max_values = np.max(array[1], axis=0)
+            avg_values = np.mean(array[1], axis=0)
+            plt.fill_between(eval_iterations, min_values, max_values, alpha=0.5, label=f'Agent {agents[1]} Min-Max Range', color='thistle')
+            plt.plot(eval_iterations, avg_values, label=f'Agent {agents[1]} Average', color='violet', linestyle='-.')
+    else:
+        for i in range(len(agents)):
+            min_values = np.min(array[i], axis=0)
+            max_values = np.max(array[i], axis=0)
+            avg_values = np.mean(array[i], axis=0)
+
+            plt.fill_between(eval_iterations, min_values, max_values, alpha=0.5, label=f'Agent {agents[i]} Min-Max Range')
+            plt.plot(eval_iterations, avg_values, label=f'Agent {agents[i]} Average')
 
     plt.xlabel('Time Steps')
     plt.ylabel(ylabel)
     if log_scale:
         plt.yscale('log')
-    elif symlog_scale:
-        plt.yscale('symlog', linthresh=1e-5)
     plt.title(title)
     plt.legend()
     plt.grid(True)
@@ -78,7 +87,6 @@ def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, sym
     plt.close()
     print(f"Plot saved as {filename}")
 
-
 def plot_training_results(
         tr_avg_undisc_returns,
         eval_avg_undisc_returns,
@@ -86,22 +94,12 @@ def plot_training_results(
         actor_losses,
         critic_losses,
 ):
-    """
-    Plots the training results including average undiscounted returns, actor and critic losses.
 
-    Args:
-        tr_avg_undisc_returns (list): Training average undiscounted returns.
-        eval_avg_undisc_returns (list): Evaluation average undiscounted returns.
-        eval_mean_traj_values (list): Mean trajectory values over evaluation.
-        actor_losses (list): Actor losses.
-        critic_losses (list): Critic losses.
-    """
     tr_returns = np.array(tr_avg_undisc_returns)
     eval_returns = np.array(eval_avg_undisc_returns)
     eval_trajec_values = np.array(eval_mean_traj_values)
     actor_losses = np.array(actor_losses)
     critic_losses = np.array(critic_losses)
-
     np.savez(
         'plots/plot_arrays.npz',
         tr_returns=tr_returns,
@@ -111,53 +109,212 @@ def plot_training_results(
         critic_losses=critic_losses
     )
 
-    tr_iterations = [1000 * i for i in range(1, len(tr_returns[0]) + 1)]
-    eval_iterations = [20000 * i for i in range(1, len(eval_returns[0]) + 1)]
+    """
+    Loads data from plot arrays and generates plots for training and evaluation results.
+    """
+    plots_arrays = []
+    for i in range(1, 8):
+        path = f'plots/agent{i}/plot_arrays.npz' if i != 7 else f'plots/agent1_stoch/plot_arrays.npz'
+        plots_arrays.append(np.load(path))
 
-    aggregate_plot(
+    tr_iterations = [1000 * i for i in range(1, len(plots_arrays[0]['tr_returns'][0]))]
+    eval_iterations = [20000 * i for i in range(1, len(plots_arrays[0]['eval_returns'][0]))]
+
+    tr_returns_arrays = [plots_arrays[i]['tr_returns'] for i in range(7)]
+    eval_returns_arrays = [plots_arrays[i]['eval_returns'] for i in range(7)]
+    eval_trajec_values_arrays = [plots_arrays[i]['eval_trajec_values'] for i in range(7)]
+    actor_arrays = [plots_arrays[i]['actor_losses'] for i in range(7)]
+    critic_arrays = [plots_arrays[i]['critic_losses'] for i in range(7)]
+
+
+    aggregate_plots(
         tr_iterations,
-        tr_returns,
-        'Return',
-        'Average Undiscounted Training Return',
-        'tr_avg_undisc_return',
-    )
-
-    aggregate_plot(
         eval_iterations,
-        eval_returns,
-        'Return',
-        'Average Undiscounted Evaluation Return',
-        'eval_avg_undisc_return'
+        [eval_trajec_values_arrays[-1][:, :-1], eval_trajec_values_arrays[1], eval_trajec_values_arrays[2], eval_trajec_values_arrays[3]],
+        ['1_stoch', '2', '3', '4'],
+        'Critic value',
+        None,
+        'eval_trajec_values_1_2_3_4',
+        log_scale=False
     )
 
-    aggregate_plot(
+    aggregate_plots(
+        tr_iterations,
         eval_iterations,
-        eval_trajec_values,
-        'Mean Value',
-        'Mean Trajectory Value Function Over Evaluation',
-        'eval_mean_traj_values'
+        [eval_trajec_values_arrays[4][:, :-1], eval_trajec_values_arrays[5]],
+        ['5', '6'],
+        'Critic value',
+        None,
+        'eval_trajec_values_5_6',
+        log_scale=False
     )
 
-    aggregate_plot(
+    aggregate_plots(
         tr_iterations,
-        actor_losses,
-        'Loss',
-        'Actor Loss Over Training',
-        'actor_losses',
-        False,
+        eval_iterations,
+        [eval_trajec_values_arrays[0][:,:24]],
+        ['1'],
+        'Critic value',
+        None,
+        'eval_trajec_values_1',
+        log_scale=False
     )
 
-    aggregate_plot(
-        tr_iterations,
-        critic_losses,
-        'Loss',
-        'Critic Loss Over Training',
-        'critic_losses',
-        True
-    )
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [actor_arrays[0][:,:499]],
+                    ['1'],
+                    'Actor loss',
+                    None,
+                    'actor_loss_1',
+                    log_scale=False,
+                    smoothing=True)
 
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [actor_arrays[-1][:,:499]],
+                    ['1 stoch'],
+                    'Actor loss',
+                    None,
+                    'actor_loss_1_stoch',
+                    log_scale=False,
+                    smoothing=True)
 
-def plot_values_over_trajectory(seed, values, n_iteration, save=True, display=False):
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [actor_arrays[1][:,:499]],
+                    ['2'],
+                    'Actor loss',
+                    None,
+                    'actor_loss_2',
+                    log_scale=False,
+                    smoothing=True)
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [actor_arrays[2][:,:499]],
+                    ['3'],
+                    'Actor loss',
+                    None,
+                    'actor_loss_3',
+                    log_scale=False,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [actor_arrays[3][:,:499]],
+                    ['4'],
+                    'Actor loss',
+                    None,
+                    'actor_loss_4',
+                    log_scale=False,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [actor_arrays[4][:,:499]],
+                    ['5'],
+                    'Actor loss',
+                    None,
+                    'actor_loss_5',
+                    log_scale=False,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [actor_arrays[5][:,:499]],
+                    ['6'],
+                    'Actor loss',
+                    None,
+                    'actor_loss_6',
+                    log_scale=False,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [critic_arrays[0][:,:499]],
+                    ['1'],
+                    'Critic loss',
+                    None,
+                    'critic_loss_1',
+                    log_scale=True,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [critic_arrays[1][:,:499]],
+                    ['2'],
+                    'Critic loss',
+                    None,
+                    'critic_loss_2',
+                    log_scale=True,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [critic_arrays[2][:,:499]],
+                    ['3'],
+                    'Critic loss',
+                    None,
+                    'critic_loss_3',
+                    log_scale=True,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [critic_arrays[3][:,:499]],
+                    ['4'],
+                    'Critic loss',
+                    None,
+                    'critic_loss_4',
+                    log_scale=True,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [critic_arrays[4][:,:499]],
+                    ['5'],
+                    'Critic loss',
+                    None,
+                    'critic_loss_5',
+                    log_scale=True,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [critic_arrays[5][:,:499]],
+                    ['6'],
+                    'Critic loss',
+                    None,
+                    'critic_loss_6',
+                    log_scale=True,
+                    smoothing=True)
+
+    aggregate_plots(tr_iterations,
+                    eval_iterations,
+                    [critic_arrays[6][:,:499]],
+                    ['1_stoch'],
+                    'Critic loss',
+                    None,
+                    'critic_loss_1_stoch',
+                    log_scale=True,
+                    smoothing=True)
+
+    ############
+    # Plot training and evaluation returns for each agent
+    for i in range(7):
+        aggregate_plots(
+            tr_iterations,
+            eval_iterations,
+            [tr_returns_arrays[i][:, :499], eval_returns_arrays[i][:, :24]],
+            [f'{i+1} training', f'{i+1} evaluation'],
+            'Undiscounted return',
+            f'tr_return_{i+1}',
+            log_scale=False,
+            smoothing=True,
+            plot_eval=True
+        )
+
+def plot_values_over_trajectory(seed, values, n_iteration, name, save=True, display=False):
     """
     Plots the value function over a trajectory.
 
@@ -184,7 +341,7 @@ def plot_values_over_trajectory(seed, values, n_iteration, save=True, display=Fa
     os.makedirs(path, exist_ok=True)
 
     if save:
-        filename = f'{path}/iter_{n_iteration}.png'
+        filename = f'{path}/{name}/iter_{n_iteration}.png'
         plt.savefig(filename)
         print(f"Plot saved as {filename}")
 

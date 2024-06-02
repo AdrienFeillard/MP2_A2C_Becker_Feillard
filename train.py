@@ -91,7 +91,8 @@ def multistep_advantage_actor_critic(
         n: int,
         max_iter: int,
         K: int = 1,
-        mask: bool = False
+        mask: bool = False,
+        name:str = ''
 ):
     """
     Executes the multi-step Advantage Actor-Critic algorithm.
@@ -172,7 +173,8 @@ def multistep_advantage_actor_critic(
                 display_render=False,
                 save_plot=True,
                 display_plot=False,
-                nb_episodes=10
+                nb_episodes=10,
+                name=name
             )
 
             current_eval_threshold += evaluate_interval
@@ -188,7 +190,8 @@ def train_advantage_actor_critic(
         max_iter: int = 500000,
         gamma: int = 0.99,
         lr_actor: float = 1e-5,
-        mask: bool = False
+        mask: bool = False,
+        name: str = ''
 ):
     """
     Trains an Advantage Actor-Critic model.
@@ -208,7 +211,7 @@ def train_advantage_actor_critic(
     nb_actions = 1 if continuous else env.action_space.n
     actor_critic = ActorCritic(nb_states, nb_actions, lr_actor, continuous)
 
-    multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors, mask=mask)
+    multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors, mask=mask, name=name)
 
 
 def evaluate(
@@ -217,7 +220,8 @@ def evaluate(
         display_render=False,
         save_plot=True,
         display_plot=False,
-        nb_episodes: int = 10
+        nb_episodes: int = 10,
+        name:str=''
 ):
     """
     Evaluates the performance of the actor-critic model.
@@ -275,7 +279,7 @@ def evaluate(
     mean_value = np.mean(episode_values)
     eval_mean_traj_values[seed].append(mean_value.item())
 
-    utils.plot_values_over_trajectory(seed, plot_values, n_iteration, save=save_plot, display=display_plot)
+    utils.plot_values_over_trajectory(seed, plot_values, n_iteration,name,  save=save_plot, display=display_plot)
 
 
 if __name__ == '__main__':
@@ -294,6 +298,25 @@ if __name__ == '__main__':
 
     nb_seeds = 3
 
+    if env_choice == '1' and mask == False:
+        name = 'agent1'
+    elif env_choice == '1' and mask == False and K ==1 and K ==1:
+        name = 'agent1_stoch'
+    elif env_choice == '1' and mask == False and K ==6 and K ==1:
+        name = 'agent2'
+    elif env_choice == '1' and mask == False and K ==1 and K ==6:
+        name = 'agent3'
+    elif env_choice == '1' and mask == False and K ==6 and K ==6:
+        name = 'agent4'
+    elif env_choice == '2' and mask == False and K ==1 and K ==1:
+        name = 'agent5'
+    elif env_choice == '2' and mask == False and K ==6 and K ==6:
+        name = 'agent6'
+
+
+
+
+
     tr_avg_undisc_returns = [[] for _ in range(nb_seeds)]
     eval_avg_undisc_returns = [[] for _ in range(nb_seeds)]
     eval_mean_traj_values = [[] for _ in range(nb_seeds)]
@@ -301,7 +324,7 @@ if __name__ == '__main__':
     critic_losses = [[] for _ in range(nb_seeds)]
 
     for seed in range(nb_seeds):
-        train_advantage_actor_critic(env, K, n, lr_actor=lr_actor, max_iter=max_iterations, mask=mask)
+        train_advantage_actor_critic(env, K, n, lr_actor=lr_actor, max_iter=max_iterations, mask=mask, name=name)
 
     utils.plot_training_results(
         tr_avg_undisc_returns,
