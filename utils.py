@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def exponential_moving_average(data, alpha=0.3):
     """
     Computes the exponential moving average of the provided data.
@@ -19,7 +20,9 @@ def exponential_moving_average(data, alpha=0.3):
         ema[t] = alpha * data[t] + (1 - alpha) * ema[t - 1]
     return ema
 
-def aggregate_plots(tr_iterations, eval_iterations, array, agents, ylabel, title, name, log_scale=False, smoothing=False, plot_eval=False):
+
+def aggregate_plots(tr_iterations, eval_iterations, array, agents, ylabel, title, name, log_scale=False,
+                    smoothing=False, plot_eval=False):
     """
     Plots the aggregate results with optional smoothing and evaluation data.
 
@@ -53,14 +56,16 @@ def aggregate_plots(tr_iterations, eval_iterations, array, agents, ylabel, title
 
         plt.plot(tr_iterations, avg_values, label='Average (Raw)', color='steelblue')
 
-        plt.fill_between(adjusted_iterations, smoothed_min_values, smoothed_max_values, alpha=0.5, color='lightsalmon', label='Min-Max Range (Smoothed)')
+        plt.fill_between(adjusted_iterations, smoothed_min_values, smoothed_max_values, alpha=0.5, color='lightsalmon',
+                         label='Min-Max Range (Smoothed)')
         plt.plot(adjusted_iterations, smoothed_avg_values, label='Average (Smoothed)', color='red')
 
         if plot_eval:
             min_values = np.min(array[1], axis=0)
             max_values = np.max(array[1], axis=0)
             avg_values = np.mean(array[1], axis=0)
-            plt.fill_between(eval_iterations, min_values, max_values, alpha=0.5, label=f'Agent {agents[1]} Min-Max Range', color='thistle')
+            plt.fill_between(eval_iterations, min_values, max_values, alpha=0.5,
+                             label=f'Agent {agents[1]} Min-Max Range', color='thistle')
             plt.plot(eval_iterations, avg_values, label=f'Agent {agents[1]} Average', color='violet', linestyle='-.')
     else:
         for i in range(len(agents)):
@@ -68,7 +73,8 @@ def aggregate_plots(tr_iterations, eval_iterations, array, agents, ylabel, title
             max_values = np.max(array[i], axis=0)
             avg_values = np.mean(array[i], axis=0)
 
-            plt.fill_between(eval_iterations, min_values, max_values, alpha=0.5, label=f'Agent {agents[i]} Min-Max Range')
+            plt.fill_between(eval_iterations, min_values, max_values, alpha=0.5,
+                             label=f'Agent {agents[i]} Min-Max Range')
             plt.plot(eval_iterations, avg_values, label=f'Agent {agents[i]} Average')
 
     plt.xlabel('Time Steps')
@@ -87,27 +93,31 @@ def aggregate_plots(tr_iterations, eval_iterations, array, agents, ylabel, title
     plt.close()
     print(f"Plot saved as {filename}")
 
+
 def plot_training_results(
         tr_avg_undisc_returns,
         eval_avg_undisc_returns,
         eval_mean_traj_values,
         actor_losses,
         critic_losses,
+        name,
+        plot
 ):
-
     tr_returns = np.array(tr_avg_undisc_returns)
     eval_returns = np.array(eval_avg_undisc_returns)
     eval_trajec_values = np.array(eval_mean_traj_values)
     actor_losses = np.array(actor_losses)
     critic_losses = np.array(critic_losses)
-    np.savez(
-        'plots/plot_arrays.npz',
-        tr_returns=tr_returns,
-        eval_returns=eval_returns,
-        eval_trajec_values=eval_trajec_values,
-        actor_losses=actor_losses,
-        critic_losses=critic_losses
-    )
+
+    if not plot:
+        np.savez(
+            f'plots/{name}/plot_arrays.npz',
+            tr_returns=tr_returns,
+            eval_returns=eval_returns,
+            eval_trajec_values=eval_trajec_values,
+            actor_losses=actor_losses,
+            critic_losses=critic_losses
+        )
 
     """
     Loads data from plot arrays and generates plots for training and evaluation results.
@@ -126,11 +136,11 @@ def plot_training_results(
     actor_arrays = [plots_arrays[i]['actor_losses'] for i in range(7)]
     critic_arrays = [plots_arrays[i]['critic_losses'] for i in range(7)]
 
-
     aggregate_plots(
         tr_iterations,
         eval_iterations,
-        [eval_trajec_values_arrays[-1][:, :-1], eval_trajec_values_arrays[1], eval_trajec_values_arrays[2], eval_trajec_values_arrays[3]],
+        [eval_trajec_values_arrays[-1][:, :-1], eval_trajec_values_arrays[1], eval_trajec_values_arrays[2],
+         eval_trajec_values_arrays[3]],
         ['1_stoch', '2', '3', '4'],
         'Critic value',
         None,
@@ -152,7 +162,7 @@ def plot_training_results(
     aggregate_plots(
         tr_iterations,
         eval_iterations,
-        [eval_trajec_values_arrays[0][:,:24]],
+        [eval_trajec_values_arrays[0][:, :24]],
         ['1'],
         'Critic value',
         None,
@@ -162,7 +172,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [actor_arrays[0][:,:499]],
+                    [actor_arrays[0][:, :499]],
                     ['1'],
                     'Actor loss',
                     None,
@@ -172,7 +182,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [actor_arrays[-1][:,:499]],
+                    [actor_arrays[-1][:, :499]],
                     ['1 stoch'],
                     'Actor loss',
                     None,
@@ -182,7 +192,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [actor_arrays[1][:,:499]],
+                    [actor_arrays[1][:, :499]],
                     ['2'],
                     'Actor loss',
                     None,
@@ -191,7 +201,7 @@ def plot_training_results(
                     smoothing=True)
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [actor_arrays[2][:,:499]],
+                    [actor_arrays[2][:, :499]],
                     ['3'],
                     'Actor loss',
                     None,
@@ -201,7 +211,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [actor_arrays[3][:,:499]],
+                    [actor_arrays[3][:, :499]],
                     ['4'],
                     'Actor loss',
                     None,
@@ -211,7 +221,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [actor_arrays[4][:,:499]],
+                    [actor_arrays[4][:, :499]],
                     ['5'],
                     'Actor loss',
                     None,
@@ -221,7 +231,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [actor_arrays[5][:,:499]],
+                    [actor_arrays[5][:, :499]],
                     ['6'],
                     'Actor loss',
                     None,
@@ -231,7 +241,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [critic_arrays[0][:,:499]],
+                    [critic_arrays[0][:, :499]],
                     ['1'],
                     'Critic loss',
                     None,
@@ -241,7 +251,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [critic_arrays[1][:,:499]],
+                    [critic_arrays[1][:, :499]],
                     ['2'],
                     'Critic loss',
                     None,
@@ -251,7 +261,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [critic_arrays[2][:,:499]],
+                    [critic_arrays[2][:, :499]],
                     ['3'],
                     'Critic loss',
                     None,
@@ -261,7 +271,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [critic_arrays[3][:,:499]],
+                    [critic_arrays[3][:, :499]],
                     ['4'],
                     'Critic loss',
                     None,
@@ -271,7 +281,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [critic_arrays[4][:,:499]],
+                    [critic_arrays[4][:, :499]],
                     ['5'],
                     'Critic loss',
                     None,
@@ -281,7 +291,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [critic_arrays[5][:,:499]],
+                    [critic_arrays[5][:, :499]],
                     ['6'],
                     'Critic loss',
                     None,
@@ -291,7 +301,7 @@ def plot_training_results(
 
     aggregate_plots(tr_iterations,
                     eval_iterations,
-                    [critic_arrays[6][:,:499]],
+                    [critic_arrays[6][:, :499]],
                     ['1_stoch'],
                     'Critic loss',
                     None,
@@ -306,13 +316,15 @@ def plot_training_results(
             tr_iterations,
             eval_iterations,
             [tr_returns_arrays[i][:, :499], eval_returns_arrays[i][:, :24]],
-            [f'{i+1} training', f'{i+1} evaluation'],
+            [f'{i + 1} training', f'{i + 1} evaluation'],
             'Undiscounted return',
-            f'tr_return_{i+1}',
+            None,
+            f'tr_return_{i + 1}',
             log_scale=False,
             smoothing=True,
             plot_eval=True
         )
+
 
 def plot_values_over_trajectory(seed, values, n_iteration, name, save=True, display=False):
     """
@@ -337,11 +349,11 @@ def plot_values_over_trajectory(seed, values, n_iteration, name, save=True, disp
     plt.legend()
     plt.grid(True)
 
-    path = f'plots/values_over_trajectory/seed_{seed}'
+    path = f'plots/{name}/values_over_trajectory/seed_{seed}'
     os.makedirs(path, exist_ok=True)
 
     if save:
-        filename = f'{path}/{name}/iter_{n_iteration}.png'
+        filename = f'{path}/iter_{n_iteration}.png'
         plt.savefig(filename)
         print(f"Plot saved as {filename}")
 
