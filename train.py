@@ -1,8 +1,7 @@
-from typing import List
-
 import numpy as np
 import torch
 import gymnasium as gym
+from gymnasium.vector import AsyncVectorEnv
 
 import utils
 from A2C import ActorCritic
@@ -10,64 +9,60 @@ from A2C import ActorCritic
 
 def data_collection(
         states: torch.Tensor,
-        envs: List[gym.Env],
+        envs: AsyncVectorEnv,
         actor_critic: ActorCritic,
         K: int,
         n: int,
         gamma: float,
         mask: bool
 ):
-    actions = [[None for _ in range(n)] for _ in range(K)]
-    next_states = [[torch.empty([]) for _ in range(n)] for _ in range(K)]
-    terminated_arr = [[False for _ in range(n)] for _ in range(K)]
-    truncated_arr = [[False for _ in range(n)] for _ in range(K)]
-    dones = [[False for _ in range(n)] for _ in range(K)]
+    actions = []
+    next_states = torch.zeros((K, n, *states.shape[1:]), dtype=torch.float32)
+    terminated_arr = torch.zeros((K, n), dtype=torch.bool)
+    truncated_arr = torch.zeros((K, n), dtype=torch.bool)
+    dones = torch.zeros((K, n), dtype=torch.bool)
 
-    rewards = torch.zeros((K, n))
-    logging_rewards = torch.zeros((K, n))
+    rewards = torch.zeros((K, n), dtype=torch.float32)
+    logging_rewards = torch.zeros((K, n), dtype=torch.float32)
 
-    for k in range(K):
-        tmp_state = states[k]
-        for i in range(n):
-            # Compute action
-            action = actor_critic.sample_action(tmp_state)
-            actions[k][i] = action
-            action = torch.clamp(action, -3, 3).detach().numpy() if actor_critic.continuous else action.item()
-            next_state, reward, terminated, truncated, _ = envs[k].step(action)
-            if terminated or truncated:
-                next_state = envs[k].reset()[0]
-            next_states[k][i] = torch.Tensor(next_state)
-            terminated_arr[k][i] = terminated
-            truncated_arr[k][i] = truncated
-            dones[k][i] = terminated or truncated
+    for i in range(n):
+        # Compute actions for all environments
+        action_batch = [actor_critic.sample_action(states[k]) for k in range(K)]
+        actions.append(action_batch)
+        action_batch = [torch.clamp(action, -3, 3).detach().numpy() if actor_critic.continuous else action.item() for action in action_batch]
 
-            rewards[k, i] = float(reward)
-            logging_rewards[k, i] = float(reward)
+        next_state, reward, terminated, truncated, _ = envs.step(action_batch)
 
-            if mask:
-                # 90% chance to zero out the reward
-                rewards[k, i] = np.random.choice([0, rewards[k, i]], p=[0.9, 0.1])
+        next_states[:, i] = torch.tensor(next_state, dtype=torch.float32)
+        terminated_arr[:, i] = torch.tensor(terminated, dtype=torch.bool)
+        truncated_arr[:, i] = torch.tensor(truncated, dtype=torch.bool)
+        dones[:, i] = terminated_arr[:, i] | truncated_arr[:, i]
 
-            tmp_state = next_states[k][i]
+        rewards[:, i] = torch.tensor(reward, dtype=torch.float32)
+        logging_rewards[:, i] = torch.tensor(reward, dtype=torch.float32)
 
-    targets = torch.zeros((K, n))
+        if mask:
+            # 90% chance to zero out the reward
+            rewards[:, i] = torch.tensor([np.random.choice([0, reward], p=[0.9, 0.1]) for reward in rewards[:, i]], dtype=torch.float32)
+
+        states = next_states[:, i]
+
+    targets = torch.zeros((K, n), dtype=torch.float32)
     for k in range(K):
         for i in range(n):
             target = 0
-            j_end = n-1
+            j_end = n - 1
             for j in range(i, n):
                 target += (gamma ** (j - i)) * rewards[k, j]
-                if terminated_arr[k][j] or truncated_arr[k][j]:
+                if terminated_arr[k, j] or truncated_arr[k, j]:
                     j_end = j
                     break
             with torch.no_grad():
-                value = actor_critic.get_value(next_states[k][j_end])
-            target += (gamma ** (j_end - i + 1)) * (1 - terminated_arr[k][j_end]) * value.squeeze()
+                value = actor_critic.get_value(next_states[k, j_end])
+            target += (gamma ** (j_end - i + 1)) * torch.logical_not(terminated_arr[k, j_end]).float() * value.squeeze()
             targets[k, i] = target
 
     actions = torch.stack([torch.stack(actions[k]) for k in range(K)])
-    next_states = torch.stack([torch.stack(next_states[k]) for k in range(K)])
-
     return actions, next_states, targets, logging_rewards, dones
 
 
@@ -85,16 +80,16 @@ def multistep_advantage_actor_critic(
     current_eval_threshold = evaluate_interval
 
     env_name = 'InvertedPendulum-v4' if actor_critic.continuous else 'CartPole-v1'
-    envs = [gym.make(env_name) for _ in range(K)]
-    states = torch.stack([torch.Tensor(envs[k].reset(seed=K * seed + k)[0]) for k in range(K)])
+    envs = AsyncVectorEnv([lambda: gym.make(env_name) for _ in range(K)])
+    observations, _ = envs.reset(seed=42)
+    states = torch.tensor(observations, dtype=torch.float32)
 
-    it = 1
-
+    total_steps = 0
     episode_returns = [0 for _ in range(K)]
     episodes_returns = []
     episodes_returns_interval = []
 
-    while it <= max_iter:
+    while total_steps <= max_iter:
         actions, next_states, targets, rewards, dones = data_collection(
             states,
             envs,
@@ -120,7 +115,7 @@ def multistep_advantage_actor_critic(
                     if dones[k][i]:
                         episode_returns[k] = 0
 
-        if it >= current_debug_threshold:
+        if total_steps >= current_debug_threshold:
             # Keep latest available return
             tr_avg_undisc_returns[seed].append(episodes_returns[-1])
 
@@ -129,7 +124,7 @@ def multistep_advantage_actor_critic(
             # Reset for the next 1000 steps
             episodes_returns_interval = []
             print(
-                f"At step {it}:\n"
+                f"At step {total_steps}:\n"
                 f"\tAverage Return of episodes in last {debug_infos_interval} steps = {average_reward}"
             )
 
@@ -140,10 +135,10 @@ def multistep_advantage_actor_critic(
 
             current_debug_threshold += debug_infos_interval
 
-        if it >= current_eval_threshold:
+        if total_steps >= current_eval_threshold:
             evaluate(
                 actor_critic,
-                it,
+                total_steps,
                 display_render=False,
                 save_plot=True,
                 display_plot=False,
@@ -152,7 +147,7 @@ def multistep_advantage_actor_critic(
 
             current_eval_threshold += evaluate_interval
 
-        it += K * n
+        total_steps += K * n
         states = states[:, -1]
 
 

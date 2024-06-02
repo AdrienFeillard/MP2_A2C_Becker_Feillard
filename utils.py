@@ -4,6 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def exponential_moving_average(data, alpha=0.3):
+    ema = np.zeros_like(data)
+    ema[0] = data[0]
+    for t in range(1, len(data)):
+        ema[t] = alpha * data[t] + (1 - alpha) * ema[t - 1]
+    return ema
+
+
 def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, symlog_scale=False):
     assert not log_scale or not symlog_scale, "Cannot use both log and symlog scale at the same time"
 
@@ -13,8 +21,22 @@ def aggregate_plot(iterations, values, ylabel, title, name, log_scale=False, sym
     max_values = np.max(values, axis=0)
     avg_values = np.mean(values, axis=0)
 
-    plt.fill_between(iterations, min_values, max_values, alpha=0.5, label='Min-Max Range')
-    plt.plot(iterations, avg_values, label='Average')
+    # Apply smoothing
+    alpha = 0.1  # Smoothing factor
+    smoothed_min_values = exponential_moving_average(min_values, alpha)
+    smoothed_max_values = exponential_moving_average(max_values, alpha)
+    smoothed_avg_values = exponential_moving_average(avg_values, alpha)
+
+    adjusted_iterations = iterations[:len(smoothed_avg_values)]
+
+    plt.fill_between(iterations, min_values, max_values, alpha=0.3, color='lightblue', label='Min-Max Range (Raw)')
+    plt.plot(iterations, avg_values, label='Average (Raw)', color='blue', linestyle='dotted')
+
+    plt.fill_between(adjusted_iterations, smoothed_min_values, smoothed_max_values, alpha=0.5, color='lightgreen', label='Min-Max Range (Smoothed)')
+    plt.plot(adjusted_iterations, smoothed_avg_values, label='Average (Smoothed)', color='green')
+
+    plt.plot(adjusted_iterations, smoothed_min_values, label='Min (Smoothed)', color='red', linestyle='dashed')
+    plt.plot(adjusted_iterations, smoothed_max_values, label='Max (Smoothed)', color='red', linestyle='dashed')
 
     plt.xlabel('Time Steps')
     plt.ylabel(ylabel)
