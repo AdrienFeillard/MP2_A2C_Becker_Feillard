@@ -1,12 +1,9 @@
 from typing import List
-
 import numpy as np
 import torch
 import gymnasium as gym
-
 import utils
 from A2C import ActorCritic
-
 
 def data_collection(
         states: torch.Tensor,
@@ -16,7 +13,22 @@ def data_collection(
         n: int,
         gamma: float,
         mask: bool
-):
+) -> tuple:
+    """
+    Collects data from the environments for K parallel actors.
+
+    Args:
+        states (torch.Tensor): Current states of the environments.
+        envs (List[gym.Env]): List of gym environments.
+        actor_critic (ActorCritic): Actor-Critic model.
+        K (int): Number of parallel actors.
+        n (int): Number of steps for n-step returns.
+        gamma (float): Discount factor.
+        mask (bool): If True, apply reward masking.
+
+    Returns:
+        tuple: Actions, next states, targets, rewards, and dones.
+    """
     actions = [[None for _ in range(n)] for _ in range(K)]
     next_states = [[torch.empty([]) for _ in range(n)] for _ in range(K)]
     terminated_arr = [[False for _ in range(n)] for _ in range(K)]
@@ -70,7 +82,6 @@ def data_collection(
 
     return actions, next_states, targets, logging_rewards, dones
 
-
 def multistep_advantage_actor_critic(
         actor_critic: ActorCritic,
         gamma: float,
@@ -79,6 +90,17 @@ def multistep_advantage_actor_critic(
         K: int = 1,
         mask: bool = False
 ):
+    """
+    Executes the multi-step Advantage Actor-Critic algorithm.
+
+    Args:
+        actor_critic (ActorCritic): Actor-Critic model.
+        gamma (float): Discount factor.
+        n (int): Number of steps for n-step returns.
+        max_iter (int): Maximum number of iterations.
+        K (int): Number of parallel actors.
+        mask (bool): If True, apply reward masking.
+    """
     debug_infos_interval = 1000
     evaluate_interval = 20000
     current_debug_threshold = debug_infos_interval
@@ -155,7 +177,6 @@ def multistep_advantage_actor_critic(
         it += K * n
         states = states[:, -1]
 
-
 def train_advantage_actor_critic(
         env_name: str,
         nb_actors: int = 1,
@@ -165,6 +186,18 @@ def train_advantage_actor_critic(
         lr_actor: float = 1e-5,
         mask: bool = False
 ):
+    """
+    Trains an Advantage Actor-Critic model.
+
+    Args:
+        env_name (str): Environment name.
+        nb_actors (int): Number of parallel actors.
+        nb_steps (int): Number of steps for n-step returns.
+        max_iter (int): Maximum number of iterations.
+        gamma (int): Discount factor.
+        lr_actor (float): Learning rate for the actor.
+        mask (bool): If True, apply reward masking.
+    """
     env = gym.make(env_name)
     nb_states = env.observation_space.shape[0]
     continuous = env_name == 'InvertedPendulum-v4'
@@ -172,7 +205,6 @@ def train_advantage_actor_critic(
     actor_critic = ActorCritic(nb_states, nb_actions, lr_actor, continuous)
 
     multistep_advantage_actor_critic(actor_critic, gamma, nb_steps, max_iter, nb_actors, mask=mask)
-
 
 def evaluate(
         actor_critic: ActorCritic,
@@ -182,6 +214,17 @@ def evaluate(
         display_plot=False,
         nb_episodes: int = 10
 ):
+    """
+    Evaluates the performance of the actor-critic model.
+
+    Args:
+        actor_critic (ActorCritic): Actor-Critic model.
+        n_iteration (int): Current iteration number.
+        display_render (bool): If True, render the environment.
+        save_plot (bool): If True, save the evaluation plot.
+        display_plot (bool): If True, display the plot.
+        nb_episodes (int): Number of evaluation episodes.
+    """
     if display_render:
         render_mode = "human"
     else:
@@ -228,7 +271,6 @@ def evaluate(
     eval_mean_traj_values[seed].append(mean_value.item())
 
     utils.plot_values_over_trajectory(seed, plot_values, n_iteration, save=save_plot, display=display_plot)
-
 
 if __name__ == '__main__':
     env_choice = input("Enter the environment (1 for 'CartPole-v1', 2 for 'InvertedPendulum-v4'): ")
